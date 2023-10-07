@@ -1,9 +1,7 @@
 using System;
 using System.Net;
-#if NETCODE
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
-#endif
 using UnityEngine;
 
 namespace Majingari.Network {
