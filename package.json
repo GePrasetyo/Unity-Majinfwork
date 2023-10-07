@@ -1,0 +1,21 @@
+{
+  "name": "com.majingari.framework",
+  "displayName": "Majingari Framework",
+  "version": "0.0.1-preview",
+  "description": "Majingari Framework.",
+  "unity": "2022.3",
+  "unityRelease": "10f1",
+  "documentationUrl": "https://github.com/GePrasetyo/UnrealFramework-forUnity/wiki/Documentation",
+  "changelogUrl": "https://github.com/GePrasetyo/UnrealFramework-forUnity/wiki/Changelog",
+  "licensesUrl": "https://github.com/GePrasetyo/UnrealFramework-forUnity/wiki/License",
+  "dependencies": {
+    "com.unity.addressables": "1.21.17",
+    "com.unity.multiplayer.tools": "1.0.0",
+    "com.unity.netcode.gameobjects": "1.6.0"
+ },
+  "author": {
+    "name": "Dhimas Prasetyo",
+    "email": "dhimasgppantoja@gmail.com",
+    "url": "https://github.com/GePrasetyo/UnrealFramework-forUnity"
+  }
+}

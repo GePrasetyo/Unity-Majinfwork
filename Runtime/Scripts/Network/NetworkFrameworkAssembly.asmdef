@@ -1,0 +1,33 @@
+{
+    "name": "Majingari.Network",
+    "rootNamespace": "Majingari.Network",
+    "references": [
+        "GUID:088b28bd4e32e6f4b812ed0814121a32",
+        "GUID:b941d24f2e4c47440b72f1a0c22d9a2c",
+        "GUID:3b8ed52f1b5c64994af4c4e0aa4b6c4b",
+        "GUID:1491147abca9d7d4bb7105af628b223e",
+        "GUID:f2d49d9fa7e7eb3418e39723a7d3b92f"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [
+        ""
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.netcode.gameobjects",
+            "expression": "1.2.0",
+            "define": "NETCODE"
+        },
+        {
+            "name": "com.community.netcode.extensions",
+            "expression": "1.0.0",
+            "define": "NETCODE_EXTENSION"
+        }
+    ],
+    "noEngineReferences": false
+}
