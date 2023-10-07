@@ -22,11 +22,6 @@
             "name": "com.unity.netcode.gameobjects",
             "expression": "1.2.0",
             "define": "NETCODE"
-        },
-        {
-            "name": "com.community.netcode.extensions",
-            "expression": "1.0.0",
-            "define": "NETCODE_EXTENSION"
         }
     ],
     "noEngineReferences": false

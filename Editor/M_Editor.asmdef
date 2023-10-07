@@ -1,0 +1,18 @@
+{
+    "name": "M_Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:5ae0b8f61355378439f76ca163caef2a"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
