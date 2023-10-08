@@ -11,6 +11,8 @@ namespace Majingari.Network {
         public static event Action ConnectionShutdown;
         private NetworkManager networkManager;
         public static event Action<IPEndPoint, DiscoveryResponseData> OnServerFound;
+        
+        private SessionState currentSessionState;
 
         void Awake() {
             if (networkManager == null) {
@@ -28,6 +30,25 @@ namespace Majingari.Network {
             networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
         }
 
+        #region Host & Join
+        public void StartGameSesssionServer() {
+            networkManager.StartServer();
+        }
+
+        public void StartGameSesssionHost() {
+            networkManager.StartHost();
+        }
+
+        public void StartGameSesssionClient() {
+            networkManager.StartClient();
+        }
+
+        public void AutoJoinLocalSession() {
+            SearchLocalSession();
+            ClientBroadcast(new DiscoveryBroadcastData());
+        }
+        #endregion
+
         private void OnClientDisconnected(ulong clientId) {
             if (clientId == networkManager.LocalClientId) {
                 Debug.Log("I'm disconnected");
@@ -42,6 +63,7 @@ namespace Majingari.Network {
         private void OnServerStart() {
             ConnectionEstablished?.Invoke();
             StartServer();
+            currentSessionState = new SessionState("");
         }
 
         private void ClientNetworkReadyWrapper(ulong clientId) {
@@ -56,9 +78,9 @@ namespace Majingari.Network {
 
         protected override bool ProcessBroadcast(IPEndPoint sender, DiscoveryBroadcastData broadCast, out DiscoveryResponseData response) {
             Debug.Log($"Broadcast my Session {sender.Address} -- {sender.Port}");
-            var sessionProp = ServiceLocator.Resolve<SessionState>();
+            
             response = new DiscoveryResponseData() {
-                serverName = sessionProp.sessionName,
+                serverName = currentSessionState.sessionName,
                 port = ((UnityTransport)networkManager.NetworkConfig.NetworkTransport).ConnectionData.Port,
             };
             return true;
@@ -66,6 +88,9 @@ namespace Majingari.Network {
 
         protected override void ResponseReceived(IPEndPoint sender, DiscoveryResponseData response) {
             OnServerFound?.Invoke(sender, response);
+            ((UnityTransport)networkManager.NetworkConfig.NetworkTransport).ConnectionData.Address = sender.Address.ToString();
+            ((UnityTransport)networkManager.NetworkConfig.NetworkTransport).ConnectionData.Port = (ushort)sender.Port;
+            networkManager.StartClient();
         }
     }
 }

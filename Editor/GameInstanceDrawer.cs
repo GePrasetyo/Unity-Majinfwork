@@ -20,9 +20,10 @@ namespace Majingari.Framework {
 
             EditorGUI.BeginProperty(position, label, property);
             if (types == null) {
-                types = typeof(GameInstance).Assembly.GetTypes()
+                types = TypeCache.GetTypesDerivedFrom(typeof(GameInstance))
                     .Where(t => typeof(GameInstance).IsAssignableFrom(t) && t.IsClass && !t.IsAbstract)
                     .ToArray();
+
                 typeNames = types.Select(t => t.Name).ToArray();
             }
 

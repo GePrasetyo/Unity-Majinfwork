@@ -76,14 +76,14 @@ namespace Majingari.Network {
         /// <summary>
         /// Starts the discovery in server mode which will respond to client broadcasts searching for servers.
         /// </summary>
-        public void StartServer() {
+        protected void StartServer() {
             StartDiscovery(true);
         }
 
         /// <summary>
         /// Starts the discovery in client mode. <see cref="ClientBroadcast"/> can be called to send out broadcasts to servers and the client will actively listen for responses.
         /// </summary>
-        public void StartClient() {
+        protected void SearchLocalSession() {
             StartDiscovery(false);
         }
 
