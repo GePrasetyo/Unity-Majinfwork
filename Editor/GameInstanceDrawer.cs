@@ -10,13 +10,15 @@ namespace Majingari.Framework {
         private string[] typeNames;
         private Rect dropDownRect;
         private Rect fieldRect;
+        GUIContent labelEmpty = new GUIContent("");
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label) {
             dropDownRect = position;
+            dropDownRect.x += 14f;
+            dropDownRect.width -= 14f;
             dropDownRect.height = EditorGUIUtility.singleLineHeight;
             fieldRect = position;
-            fieldRect.y += EditorGUIUtility.singleLineHeight;
-            fieldRect.height = position.height + EditorGUIUtility.singleLineHeight;
+            fieldRect.height = position.height - EditorGUIUtility.singleLineHeight;
 
             EditorGUI.BeginProperty(position, label, property);
             if (types == null) {
@@ -38,18 +40,18 @@ namespace Majingari.Framework {
             }
 
             EditorGUI.BeginChangeCheck();
-            selectedIndex = EditorGUI.Popup(dropDownRect, "Game Instance", selectedIndex, typeNames);
+            selectedIndex = EditorGUI.Popup(dropDownRect, label.text, selectedIndex, typeNames);
             if (EditorGUI.EndChangeCheck()) {
                 property.managedReferenceValue = Activator.CreateInstance(types[selectedIndex]);
                 property.serializedObject.ApplyModifiedProperties();
             }
 
-            EditorGUI.PropertyField(fieldRect, property, label, true);
+            EditorGUI.PropertyField(fieldRect, property, labelEmpty, true);
             EditorGUI.EndProperty();
         }
 
         public override float GetPropertyHeight(SerializedProperty property, GUIContent label) {
-            return EditorGUI.GetPropertyHeight(property) + EditorGUIUtility.singleLineHeight;
+            return EditorGUI.GetPropertyHeight(property)/* + EditorGUIUtility.singleLineHeight*/;
         }
     }
 }
