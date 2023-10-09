@@ -32,7 +32,7 @@ namespace Majingari.Framework {
                 selectedIndex = Array.IndexOf(types, property.managedReferenceValue.GetType());
             }
             else {
-                property.managedReferenceValue = new GameInstance();
+                property.managedReferenceValue = new PersistentGameInstance();
                 selectedIndex = Array.IndexOf(types, property.managedReferenceValue.GetType());
                 property.serializedObject.ApplyModifiedProperties();
             }
