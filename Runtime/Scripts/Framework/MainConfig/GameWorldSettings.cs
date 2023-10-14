@@ -39,12 +39,20 @@ namespace Majingari.Framework.World {
 #if UNITY_EDITOR
         [InitializeOnLoadMethod]
         private static void OnEditorLoad() {
-            string assetPath = "Assets/Resources/GameWorldSettings.asset";
-            GameWorldSettings asset = AssetDatabase.LoadAssetAtPath<GameWorldSettings>(assetPath);
+            EditorApplication.update += RunOnceWhenScriptsReloaded;
+        }
 
-            if (asset == null) {
-                Debug.LogError("WARNING : You don't have GameWorldSettings");
-                CreateGameWorldAsset();
+        private static void RunOnceWhenScriptsReloaded() {
+            if (!EditorApplication.isCompiling) {
+                EditorApplication.update -= RunOnceWhenScriptsReloaded;
+
+                string assetPath = "Assets/Resources/GameWorldSettings.asset";
+                GameWorldSettings asset = AssetDatabase.LoadAssetAtPath<GameWorldSettings>(assetPath);
+
+                if (asset == null) {
+                    Debug.LogError("WARNING : You don't have GameWorldSettings");
+                    CreateGameWorldAsset();
+                }
             }
         }
 
