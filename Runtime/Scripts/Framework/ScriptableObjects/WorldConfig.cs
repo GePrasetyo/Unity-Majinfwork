@@ -57,7 +57,6 @@ namespace Majingari.Framework.World {
 
     [Serializable]
     public class AddressableSceneHandler {
-        public string sceneName;
         public AssetReference sceneAddressable;
         internal AsyncOperationHandle<SceneInstance> streamHandler;
         internal Action<string> streamHandlerCompleted;
