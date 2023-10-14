@@ -23,6 +23,10 @@ namespace Majingari.Framework {
 
             EditorGUI.BeginProperty(position, label, property);
 
+            if(property.propertyType != SerializedPropertyType.ManagedReference) {
+                return;
+            }
+
             if (types == null) {
                 Type fieldType = GetTypeOfField(property);
                 if (fieldType != null) {
@@ -32,6 +36,10 @@ namespace Majingari.Framework {
 
                     typeNames = types.Select(t => t.Name).ToArray();
                 }
+            }
+
+            if(types.Length == 0) {
+                return;
             }
 
             int selectedIndex = 0;
