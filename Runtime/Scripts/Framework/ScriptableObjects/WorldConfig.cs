@@ -18,6 +18,8 @@ namespace Majingari.Framework.World {
         public Dictionary<string, WorldAssetConfig> MapConfigList = new Dictionary<string, WorldAssetConfig>();
         public Dictionary<string, AddressableSceneHandler> levelStreamDictionary = new Dictionary<string, AddressableSceneHandler>();
 
+        [SerializeReference, ClassReference] private LoadingStreamer loadingHandler;
+
         public void SetupDictionary() {
             MapConfigList.Clear();
 
@@ -35,6 +37,8 @@ namespace Majingari.Framework.World {
                     levelStreamDictionary[levelStreamCollection[i].sceneAddressable.AssetGUID] = levelStreamCollection[i];
                 }
             }
+
+            loadingHandler.Construct();
         }
     }
 
@@ -60,7 +64,7 @@ namespace Majingari.Framework.World {
         public AssetReference sceneAddressable;
         internal AsyncOperationHandle<SceneInstance> streamHandler;
         internal Action<string> streamHandlerCompleted;
-        internal SceneLoadStatus status = SceneLoadStatus.Unloaded;
+        [SerializeField] internal SceneLoadStatus status = SceneLoadStatus.Unloaded;
 
         public void UpdateHandler(AsyncOperationHandle<SceneInstance> obj) {
             if (obj.Status == AsyncOperationStatus.Failed) {
