@@ -28,12 +28,12 @@ namespace Majingari.Network {
         }
 
         public void Update() {
-            if (startWithServer && hasStartedWithServer == false && isRunning == false) {
-                if (networkManager.IsServer) {
-                    StartServer();
-                    hasStartedWithServer = true;
-                }
-            }
+            //if (startWithServer && hasStartedWithServer == false && isRunning == false) {
+            //    if (networkManager.IsServer) {
+            //        StartServer();
+            //        hasStartedWithServer = true;
+            //    }
+            //}
         }
 
         protected override bool ProcessBroadcast(IPEndPoint sender, DiscoveryBroadcastData broadCast, out DiscoveryResponseData response) {

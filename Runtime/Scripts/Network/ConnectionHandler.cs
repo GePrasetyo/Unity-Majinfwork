@@ -22,6 +22,9 @@ namespace Majingari.Network {
             networkManager.OnServerStarted += OnServerStart;
             networkManager.OnClientConnectedCallback += ClientNetworkReadyWrapper;
             networkManager.OnClientDisconnectCallback += OnClientDisconnected;
+
+            port = NetworkUtility.GetAvailablePort();
+            ((UnityTransport)networkManager.NetworkConfig.NetworkTransport).ConnectionData.Port = port;
         }
 
         void OnDestroy() {
@@ -90,7 +93,7 @@ namespace Majingari.Network {
             OnServerFound?.Invoke(sender, response);
             ((UnityTransport)networkManager.NetworkConfig.NetworkTransport).ConnectionData.Address = sender.Address.ToString();
             ((UnityTransport)networkManager.NetworkConfig.NetworkTransport).ConnectionData.Port = (ushort)sender.Port;
-            networkManager.StartClient();
+            StartGameSesssionClient();
         }
     }
 }

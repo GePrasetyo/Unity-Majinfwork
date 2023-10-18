@@ -17,27 +17,13 @@ namespace Majingari.Network {
             Response = 1,
         }
 
-        UdpClient udpClient;
+        private UdpClient udpClient;
 
-        [SerializeField] ushort port = 47777;
+        [SerializeField] protected ushort port = 47777;
+        [SerializeField] protected long uniqueApplicationId;
 
-        // This is long because unity inspector does not like ulong.
-        [SerializeField]
-        long uniqueApplicationId;
-
-        /// <summary>
-        /// Gets a value indicating whether the discovery is running.
-        /// </summary>
         public bool isRunning { get; private set; }
-
-        /// <summary>
-        /// Gets whether the discovery is in server mode.
-        /// </summary>
         public bool isServer { get; private set; }
-
-        /// <summary>
-        /// Gets whether the discovery is in client mode.
-        /// </summary>
         public bool isClient { get; private set; }
 
         public void OnApplicationQuit() {
@@ -45,11 +31,11 @@ namespace Majingari.Network {
         }
 
         void OnValidate() {
-            if (uniqueApplicationId == 0) {
-                var value1 = (long)Random.Range(int.MinValue, int.MaxValue);
-                var value2 = (long)Random.Range(int.MinValue, int.MaxValue);
-                uniqueApplicationId = value1 + (value2 << 32);
-            }
+            //if (uniqueApplicationId == 0) {
+            //    var value1 = (long)Random.Range(int.MinValue, int.MaxValue);
+            //    var value2 = (long)Random.Range(int.MinValue, int.MaxValue);
+            //    uniqueApplicationId = value1 + (value2 << 32);
+            //}
         }
 
         public void ClientBroadcast(TBroadCast broadCast) {
@@ -73,16 +59,10 @@ namespace Majingari.Network {
             }
         }
 
-        /// <summary>
-        /// Starts the discovery in server mode which will respond to client broadcasts searching for servers.
-        /// </summary>
         protected void StartServer() {
             StartDiscovery(true);
         }
 
-        /// <summary>
-        /// Starts the discovery in client mode. <see cref="ClientBroadcast"/> can be called to send out broadcasts to servers and the client will actively listen for responses.
-        /// </summary>
         protected void SearchLocalSession() {
             StartDiscovery(false);
         }

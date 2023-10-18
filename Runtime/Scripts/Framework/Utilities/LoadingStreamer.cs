@@ -4,8 +4,6 @@ using UnityEngine;
 namespace Majingari.Framework.World {
     [Serializable]
     public abstract class LoadingStreamer {
-        public virtual void Construct() {
-
-        }
+        public abstract void Construct();
     }
 }
