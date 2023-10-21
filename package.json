@@ -10,7 +10,6 @@
   "licensesUrl": "https://github.com/GePrasetyo/UnrealFramework-forUnity/wiki/License",
   "dependencies": {
     "com.unity.addressables": "1.21.17",
-    "com.unity.multiplayer.tools": "1.0.0",
     "com.unity.netcode.gameobjects": "1.6.0"
  },
   "author": {

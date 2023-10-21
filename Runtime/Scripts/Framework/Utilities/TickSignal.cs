@@ -17,11 +17,14 @@ namespace Majingari.Framework {
             tickSubscriber?.Invoke();
         }
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
+        private void OnDestroy() {
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void InitService() {
             var obj = new GameObject().AddComponent<TickSignal>();
             obj.name = "[Service] Tick Signal";
-            DontDestroyOnLoad(obj);
+            DontDestroyOnLoad(obj.gameObject);
             ServiceLocator.Register<TickSignal>(obj);
         }
     }

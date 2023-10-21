@@ -24,7 +24,7 @@ namespace Majingari.Framework {
             var fsm = new GameObject().AddComponent<Animator>();
             fsm.name = "[Service] State Machine";
             fsm.runtimeAnimatorController = gameStateMachine;
-            Object.DontDestroyOnLoad(fsm);
+            Object.DontDestroyOnLoad(fsm.gameObject);
 
             Start();
         }

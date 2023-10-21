@@ -45,7 +45,7 @@ namespace Majingari.Framework.World {
             Debug.Log(unloadedSceneObject + " unloaded");
         }
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void InitService() {
             ServiceLocator.Register<LevelStreamer>(new LevelStreamer());
         }
