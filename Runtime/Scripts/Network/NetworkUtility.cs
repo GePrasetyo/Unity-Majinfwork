@@ -30,7 +30,7 @@ namespace Majingari.Network {
                     port = (ushort)UnityEngine.Random.Range(7000, 8000);
                 }
                 else {
-                    Debug.Log("Port available");
+                    Debug.Log($"Port available {port}");
                     break;
                 }
 

@@ -23,8 +23,8 @@ namespace Majingari.Network {
             networkManager.OnClientConnectedCallback += ClientNetworkReadyWrapper;
             networkManager.OnClientDisconnectCallback += OnClientDisconnected;
 
-            port = NetworkUtility.GetAvailablePort();
-            ((UnityTransport)networkManager.NetworkConfig.NetworkTransport).ConnectionData.Port = port;
+            //port = NetworkUtility.GetAvailablePort();
+            //((UnityTransport)networkManager.NetworkConfig.NetworkTransport).ConnectionData.Port = 7777;
         }
 
         void OnDestroy() {
