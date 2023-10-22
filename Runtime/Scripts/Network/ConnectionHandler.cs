@@ -1,30 +1,48 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using Unity.Netcode;
-using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 
 namespace Majingari.Network {
     [RequireComponent(typeof(NetworkManager))]
-    public class ConnectionHandler : NetworkDiscovery<DiscoveryBroadcastData, DiscoveryResponseData> {
+    public class ConnectionHandler : MonoBehaviour {
         public static event Action ConnectionEstablished;
         public static event Action ConnectionShutdown;
+        public static event Action<IPEndPoint, DiscoveryResponseData> OnLocalSessionFound;
+
+        [SerializeField] private bool lanSupport;
+
         private NetworkManager networkManager;
-        public static event Action<IPEndPoint, DiscoveryResponseData> OnServerFound;
-        
         private SessionState currentSessionState;
+
+        // used in ApprovalCheck. This is intended as a bit of light protection against DOS attacks that rely on sending silly big buffers of garbage.
+        private const int maxConnectPayload = 256;
+
+
+        #region Session Holder
+        public Dictionary<string, PlayerData> _guidToClientData { get; private set; }
+        public Dictionary<ulong, ClientRpcParams> TargetRPC;
+        private Dictionary<ulong, string> _clientIDToGuid;
+        private Dictionary<ulong, string> _clientToScene = new Dictionary<ulong, string>();
+        #endregion
 
         void Awake() {
             if (networkManager == null) {
-                networkManager = GetComponent<NetworkManager>();
+                if (!TryGetComponent(out networkManager)) {
+                    return;
+                }
+            }
+
+            if (lanSupport) {
+                var lanHandler = new ConnectionLANSupport(networkManager);
+                ServiceLocator.Register<ConnectionLANSupport>(lanHandler);
             }
 
             networkManager.OnServerStarted += OnServerStart;
             networkManager.OnClientConnectedCallback += ClientNetworkReadyWrapper;
             networkManager.OnClientDisconnectCallback += OnClientDisconnected;
-
-            //port = NetworkUtility.GetAvailablePort();
-            //((UnityTransport)networkManager.NetworkConfig.NetworkTransport).ConnectionData.Port = 7777;
+            networkManager.ConnectionApprovalCallback += ApprovalCheck;
         }
 
         void OnDestroy() {
@@ -33,30 +51,34 @@ namespace Majingari.Network {
             networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
         }
 
-        #region Host & Join
         public void StartGameSesssionServer() {
+            //port = NetworkUtility.GetAvailablePort();
             networkManager.StartServer();
         }
 
-        public void StartGameSesssionHost() {
+        public void StartGameSessionHost() {
             networkManager.StartHost();
         }
 
         public void StartGameSesssionClient() {
+            //var payload = JsonUtility.ToJson(new ConnectionPayload() {
+            //    clientGUID = new Guid().ToString(),
+            //    clientScene = SceneManager.GetActiveScene().name,
+            //    playerName = "",
+            //});
+
+            //var payloadBytes = System.Text.Encoding.UTF8.GetBytes(payload);
+
+            //networkManager.NetworkConfig.ConnectionData = payloadBytes;
+            //networkManager.NetworkConfig.ClientConnectionBufferTimeout = _timeoutDuration;
+
             networkManager.StartClient();
         }
-
-        public void AutoJoinLocalSession() {
-            SearchLocalSession();
-            ClientBroadcast(new DiscoveryBroadcastData());
-        }
-        #endregion
 
         private void OnClientDisconnected(ulong clientId) {
             if (clientId == networkManager.LocalClientId) {
                 Debug.Log("I'm disconnected");
                 ConnectionShutdown?.Invoke();
-                StopDiscovery();
             }
             else {
                 Debug.Log($"Somone Disconnected {clientId}");
@@ -65,7 +87,6 @@ namespace Majingari.Network {
 
         private void OnServerStart() {
             ConnectionEstablished?.Invoke();
-            StartServer();
             currentSessionState = new SessionState("");
         }
 
@@ -79,21 +100,77 @@ namespace Majingari.Network {
             }
         }
 
-        protected override bool ProcessBroadcast(IPEndPoint sender, DiscoveryBroadcastData broadCast, out DiscoveryResponseData response) {
-            Debug.Log($"Broadcast my Session {sender.Address} -- {sender.Port}");
-            
-            response = new DiscoveryResponseData() {
-                serverName = currentSessionState.sessionName,
-                port = ((UnityTransport)networkManager.NetworkConfig.NetworkTransport).ConnectionData.Port,
-            };
-            return true;
-        }
+        protected virtual void ApprovalCheck(NetworkManager.ConnectionApprovalRequest request, NetworkManager.ConnectionApprovalResponse response) {
+            Debug.Log("Server/Host Checking Approval!");
 
-        protected override void ResponseReceived(IPEndPoint sender, DiscoveryResponseData response) {
-            OnServerFound?.Invoke(sender, response);
-            ((UnityTransport)networkManager.NetworkConfig.NetworkTransport).ConnectionData.Address = sender.Address.ToString();
-            ((UnityTransport)networkManager.NetworkConfig.NetworkTransport).ConnectionData.Port = (ushort)sender.Port;
-            StartGameSesssionClient();
+            // The client identifier to be authenticated
+            var clientId = request.ClientNetworkId;
+            // Additional connection data defined by user code
+            var connectionData = request.Payload;
+
+            if (connectionData.Length > maxConnectPayload) {
+                response.Approved = false;
+                response.Reason = ConnectionMessage.ConnectionDataLong;
+                return;
+            }
+
+            string payload = System.Text.Encoding.UTF8.GetString(connectionData);
+            var connectionPayload = JsonUtility.FromJson<ConnectionPayload>(payload);
+
+            string clientScene = connectionPayload.clientScene;
+            string playerSessionID = connectionPayload.clientGUID;
+
+            Debug.Log("Host ApprovalCheck: connecting client GUID: " + playerSessionID);
+
+            response.Approved = true;
+            response.Pending = false;
+
+            //Spawning  Player Prefab
+            response.CreatePlayerObject = true;
+            response.PlayerPrefabHash = null;
+            response.Position = Vector3.zero;
+            response.Rotation = Quaternion.identity;
+
+            _clientToScene[clientId] = clientScene;
+            _clientIDToGuid[clientId] = connectionPayload.clientGUID;
+            _guidToClientData[connectionPayload.clientGUID] = new PlayerData(connectionPayload.playerName, clientId);
+
+            ClientRpcParams clientRpcParams = new ClientRpcParams {
+                Send = new ClientRpcSendParams {
+                    TargetClientIds = new ulong[] { clientId }
+                }
+            };
+            TargetRPC[clientId] = clientRpcParams;
+        }
+    }
+
+    internal static class ConnectionMessage{
+        internal const string ConnectionDataLong = "Connection Data Exceed Max Payload";
+    }
+
+    [Serializable]
+    public class ConnectionPayload {
+        public string clientGUID;
+        public string clientScene = "";
+        public string playerName;
+    }
+
+    public enum ConnectStatus {
+        Undefined,
+        Success,                  //client successfully connected. This may also be a successful reconnect.
+        ServerFull,               //can't join, server is already at capacity.
+        LoggedInAgain,            //logged in on a separate client, causing this one to be kicked out.
+        UserRequestedDisconnect,  //Intentional Disconnect triggered by the user. 
+        GenericDisconnect,        //server disconnected, but no specific reason given.
+    }
+
+    public struct PlayerData {
+        public string PlayerName;  //name of the player
+        public ulong ClientID; //the identifying id of the client
+
+        public PlayerData(string playerName, ulong clientId) {
+            PlayerName = playerName;
+            ClientID = clientId;
         }
     }
 }

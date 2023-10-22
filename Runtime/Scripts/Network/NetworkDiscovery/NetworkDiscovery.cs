@@ -5,11 +5,10 @@ using System.Threading.Tasks;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
-using Random = UnityEngine.Random;
 
 namespace Majingari.Network {
     [DisallowMultipleComponent]
-    public abstract class NetworkDiscovery<TBroadCast, TResponse> : MonoBehaviour
+    public abstract class NetworkDiscovery<TBroadCast, TResponse>
         where TBroadCast : INetworkSerializable, new()
         where TResponse : INetworkSerializable, new() {
         private enum MessageType : byte {
@@ -20,7 +19,7 @@ namespace Majingari.Network {
         private UdpClient udpClient;
 
         [SerializeField] protected ushort port = 47777;
-        [SerializeField] protected long uniqueApplicationId;
+        protected const long LANBroadcastID = 5687486546;
 
         public bool isRunning { get; private set; }
         public bool isServer { get; private set; }
@@ -28,14 +27,6 @@ namespace Majingari.Network {
 
         public void OnApplicationQuit() {
             StopDiscovery();
-        }
-
-        void OnValidate() {
-            //if (uniqueApplicationId == 0) {
-            //    var value1 = (long)Random.Range(int.MinValue, int.MaxValue);
-            //    var value2 = (long)Random.Range(int.MinValue, int.MaxValue);
-            //    uniqueApplicationId = value1 + (value2 << 32);
-            //}
         }
 
         public void ClientBroadcast(TBroadCast broadCast) {
@@ -59,7 +50,7 @@ namespace Majingari.Network {
             }
         }
 
-        protected void StartServer() {
+        protected void StartLocalSession() {
             StartDiscovery(true);
         }
 
@@ -174,7 +165,7 @@ namespace Majingari.Network {
 
         private void WriteHeader(FastBufferWriter writer, MessageType messageType) {
             // Serialize unique application id to make sure packet received is from same application.
-            writer.WriteValueSafe(uniqueApplicationId);
+            writer.WriteValueSafe(LANBroadcastID);
 
             // Write a flag indicating whether this is a broadcast
             writer.WriteByteSafe((byte)messageType);
@@ -182,7 +173,7 @@ namespace Majingari.Network {
 
         private bool ReadAndCheckHeader(FastBufferReader reader, MessageType expectedType) {
             reader.ReadValueSafe(out long receivedApplicationId);
-            if (receivedApplicationId != uniqueApplicationId) {
+            if (receivedApplicationId != LANBroadcastID) {
                 return false;
             }
 
