@@ -1,23 +1,21 @@
 using System.Net;
 using System;
 using Unity.Netcode.Transports.UTP;
-using Unity.Netcode;
 
 namespace Majingari.Network {
     public class ConnectionLANSupport : NetworkDiscovery<DiscoveryBroadcastData, DiscoveryResponseData> {
         public static event Action<IPEndPoint, DiscoveryResponseData> OnLocalSessionFound;
-        private NetworkManager networkManager;
-        private SessionState currentSession;
+        private UNetcodeConnectionHandler connectionHandler;
 
-        public ConnectionLANSupport(NetworkManager netManager) {
-            this.networkManager = netManager;
+        public ConnectionLANSupport(UNetcodeConnectionHandler connectionHandler) {
+            this.connectionHandler = connectionHandler;
 
-            networkManager.OnClientDisconnectCallback += OnClientDisconnected;
+            connectionHandler.networkManager.OnClientDisconnectCallback += OnClientDisconnected;
         }
 
         public void StartLocalSesssionHost() {
-            networkManager.OnServerStarted += OnLocalSessionStarted;
-            networkManager.StartHost();
+            connectionHandler.networkManager.OnServerStarted += OnLocalSessionStarted;
+            connectionHandler.StartGameSessionHost();
         }
 
         public void AutoJoinLocalSession() {
@@ -26,29 +24,29 @@ namespace Majingari.Network {
         }
 
         private void OnLocalSessionStarted() {
-            networkManager.OnServerStarted -= OnLocalSessionStarted;
+            connectionHandler.networkManager.OnServerStarted -= OnLocalSessionStarted;
             StartLocalSession();
         }
 
         protected override bool ProcessBroadcast(IPEndPoint sender, DiscoveryBroadcastData broadCast, out DiscoveryResponseData response) {
             response = new DiscoveryResponseData() {
-                serverName = currentSession.sessionName,
-                port = ((UnityTransport)networkManager.NetworkConfig.NetworkTransport).ConnectionData.Port,
+                serverName = connectionHandler.currentSessionState.sessionName,
+                port = ((UnityTransport)connectionHandler.networkManager.NetworkConfig.NetworkTransport).ConnectionData.Port,
             };
             return true;
         }
 
         protected override void ResponseReceived(IPEndPoint sender, DiscoveryResponseData response) {
-            UnityEngine.Debug.Log($"Broadcast my Session {sender.Address} -- {sender.Port}");
+            UnityEngine.Debug.Log($"Receive a Session {sender.Address} -- {sender.Port}");
 
             OnLocalSessionFound?.Invoke(sender, response);
-            ((UnityTransport)networkManager.NetworkConfig.NetworkTransport).ConnectionData.Address = sender.Address.ToString();
-            ((UnityTransport)networkManager.NetworkConfig.NetworkTransport).ConnectionData.Port = (ushort)sender.Port;
-            networkManager.StartClient();
+            ((UnityTransport)connectionHandler.networkManager.NetworkConfig.NetworkTransport).ConnectionData.Address = sender.Address.ToString();
+            ((UnityTransport)connectionHandler.networkManager.NetworkConfig.NetworkTransport).ConnectionData.Port = (ushort)sender.Port;
+            connectionHandler.StartGameSesssionClient();
         }
 
         private void OnClientDisconnected(ulong clientId) {
-            if (clientId == networkManager.LocalClientId) {
+            if (clientId == connectionHandler.networkManager.LocalClientId) {
                 StopDiscovery();
             }
         }

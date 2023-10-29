@@ -3,28 +3,29 @@ using System.Collections.Generic;
 using System.Net;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Majingari.Network {
     [RequireComponent(typeof(NetworkManager))]
-    public class ConnectionHandler : MonoBehaviour {
+    public class UNetcodeConnectionHandler : MonoBehaviour {
         public static event Action ConnectionEstablished;
         public static event Action ConnectionShutdown;
         public static event Action<IPEndPoint, DiscoveryResponseData> OnLocalSessionFound;
 
         [SerializeField] private bool lanSupport;
 
-        private NetworkManager networkManager;
-        private SessionState currentSessionState;
+        internal NetworkManager networkManager;
+        internal SessionState currentSessionState;
 
         // used in ApprovalCheck. This is intended as a bit of light protection against DOS attacks that rely on sending silly big buffers of garbage.
         private const int maxConnectPayload = 256;
 
-
         #region Session Holder
-        public Dictionary<string, PlayerData> _guidToClientData { get; private set; }
-        public Dictionary<ulong, ClientRpcParams> TargetRPC;
-        private Dictionary<ulong, string> _clientIDToGuid;
-        private Dictionary<ulong, string> _clientToScene = new Dictionary<ulong, string>();
+        public Dictionary<string, PlayerData> guidToClientData { get; private set; }
+        public Dictionary<ulong, ClientRpcParams> targetRPC { get; private set; }
+
+        private Dictionary<ulong, string> clientIDToGuid = new Dictionary<ulong, string>();
+        private Dictionary<ulong, string> clientToScene = new Dictionary<ulong, string>();
         #endregion
 
         void Awake() {
@@ -35,7 +36,7 @@ namespace Majingari.Network {
             }
 
             if (lanSupport) {
-                var lanHandler = new ConnectionLANSupport(networkManager);
+                var lanHandler = new ConnectionLANSupport(this);
                 ServiceLocator.Register<ConnectionLANSupport>(lanHandler);
             }
 
@@ -43,6 +44,10 @@ namespace Majingari.Network {
             networkManager.OnClientConnectedCallback += ClientNetworkReadyWrapper;
             networkManager.OnClientDisconnectCallback += OnClientDisconnected;
             networkManager.ConnectionApprovalCallback += ApprovalCheck;
+
+            guidToClientData = new Dictionary<string, PlayerData>();
+            targetRPC = new Dictionary<ulong, ClientRpcParams>();
+            
         }
 
         void OnDestroy() {
@@ -57,21 +62,28 @@ namespace Majingari.Network {
         }
 
         public void StartGameSessionHost() {
+            var payload = JsonUtility.ToJson(new ConnectionPayload() {
+                clientGUID = Guid.NewGuid().ToString(),
+                clientScene = SceneManager.GetActiveScene().name,
+                playerName = "",
+            });
+
+            var payloadBytes = System.Text.Encoding.UTF8.GetBytes(payload);
+
+            networkManager.NetworkConfig.ConnectionData = payloadBytes;
             networkManager.StartHost();
         }
 
         public void StartGameSesssionClient() {
-            //var payload = JsonUtility.ToJson(new ConnectionPayload() {
-            //    clientGUID = new Guid().ToString(),
-            //    clientScene = SceneManager.GetActiveScene().name,
-            //    playerName = "",
-            //});
+            var payload = JsonUtility.ToJson(new ConnectionPayload() {
+                clientGUID = Guid.NewGuid().ToString(),
+                clientScene = SceneManager.GetActiveScene().name,
+                playerName = "",
+            });
 
-            //var payloadBytes = System.Text.Encoding.UTF8.GetBytes(payload);
+            var payloadBytes = System.Text.Encoding.UTF8.GetBytes(payload);
 
-            //networkManager.NetworkConfig.ConnectionData = payloadBytes;
-            //networkManager.NetworkConfig.ClientConnectionBufferTimeout = _timeoutDuration;
-
+            networkManager.NetworkConfig.ConnectionData = payloadBytes;
             networkManager.StartClient();
         }
 
@@ -131,16 +143,16 @@ namespace Majingari.Network {
             response.Position = Vector3.zero;
             response.Rotation = Quaternion.identity;
 
-            _clientToScene[clientId] = clientScene;
-            _clientIDToGuid[clientId] = connectionPayload.clientGUID;
-            _guidToClientData[connectionPayload.clientGUID] = new PlayerData(connectionPayload.playerName, clientId);
+            clientToScene[clientId] = clientScene;
+            clientIDToGuid[clientId] = connectionPayload.clientGUID;
+            guidToClientData[connectionPayload.clientGUID] = new PlayerData(connectionPayload.playerName, clientId);
 
             ClientRpcParams clientRpcParams = new ClientRpcParams {
                 Send = new ClientRpcSendParams {
                     TargetClientIds = new ulong[] { clientId }
                 }
             };
-            TargetRPC[clientId] = clientRpcParams;
+            targetRPC[clientId] = clientRpcParams;
         }
     }
 
