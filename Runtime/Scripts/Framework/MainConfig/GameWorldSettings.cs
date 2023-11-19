@@ -6,7 +6,7 @@ using UnityEditor;
 
 namespace Majingari.Framework.World {
     internal sealed class GameWorldSettings : ScriptableObject {
-        [SerializeReference] public GameInstance classGameInstance;
+        [SerializeReference, ClassReference] public GameInstance classGameInstance;
         [SerializeField] private WorldConfig worldConfigObject;
 
         [Header("Player Setting")]

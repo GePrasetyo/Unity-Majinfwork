@@ -15,9 +15,9 @@ namespace Majingari.Framework {
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label) {
             dropDownRect = position;
-            dropDownRect.x += 14f;
-            dropDownRect.width -= 14f;
+            dropDownRect.xMin += 14f;
             dropDownRect.height = EditorGUIUtility.singleLineHeight;
+
             fieldRect = position;
             fieldRect.height = position.height - EditorGUIUtility.singleLineHeight;
 
@@ -57,7 +57,10 @@ namespace Majingari.Framework {
             if (EditorGUI.EndChangeCheck()) {
                 if (selectedIndex >= 0) {
                     property.managedReferenceValue = Activator.CreateInstance(types[selectedIndex]);
-                    property.serializedObject.ApplyModifiedProperties();
+                    
+                    
+                    bool lalalal = property.serializedObject.ApplyModifiedProperties();
+                    Debug.LogError(lalalal);
                 }
             }
 
