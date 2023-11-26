@@ -15,7 +15,7 @@ namespace Majingari.Framework {
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label) {
             dropDownRect = position;
-            dropDownRect.xMin += 14f;
+            //dropDownRect.xMin += 14f;
             dropDownRect.height = EditorGUIUtility.singleLineHeight;
 
             fieldRect = position;
