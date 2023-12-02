@@ -12,6 +12,8 @@ namespace Majingari.Framework.World {
         [SerializeField] private PlayerState _playerState;
         [SerializeField] private PlayerPawn _playerPawn;
 
+        internal static PlayerDependency playerReference;
+
         public void InitiateGameManager() {
             Instantiate(_gameState);
             Instantiate(_hudManager);
@@ -19,9 +21,39 @@ namespace Majingari.Framework.World {
         }
 
         public void InstantiatePlayer() {
-            var _pc = Instantiate(_playerController);
-            _pc.Construct(_playerState, _playerPawn);
+            playerReference = PlayerDependencyFactory.Create(_playerState, _playerPawn);
+            Instantiate(_playerController);
+        }
+
+        internal abstract class PlayerDependency {
+            public abstract PlayerState GetState();
+            public abstract PlayerPawn GetPawn();
+        }
+
+        internal class PlayerConstructorDependency<S, P> : PlayerDependency where S : PlayerState where P : PlayerPawn {
+            public S state;
+            public P pawn;
+
+            public override PlayerState GetState() => state;
+            public override PlayerPawn GetPawn() => pawn;
+
+            public PlayerConstructorDependency (S _state, P _pawn) {
+                state = Instantiate(_state);
+                pawn = Instantiate(_pawn);
+            }
+        }
+
+        internal static class PlayerDependencyFactory {
+            public static PlayerDependency Create(PlayerState stateInstance, PlayerPawn pawnInstance) {
+                Type stateType = stateInstance.GetType();
+                Type pawnType = pawnInstance.GetType(); 
+
+                var constructor = typeof(PlayerConstructorDependency<,>)
+                    .MakeGenericType(stateType, pawnType)
+                    .GetConstructor(new[] { stateType, pawnType });
+
+                return (PlayerDependency)constructor.Invoke(new object[] { stateInstance, pawnInstance });
+            }
         }
     }
-
 }
