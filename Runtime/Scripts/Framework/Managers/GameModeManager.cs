@@ -18,11 +18,9 @@ namespace Majingari.Framework.World {
         internal void OnActive() {
             InitiateGameManager();
             InstantiatePlayer();
-            Debug.LogError(this.name);
         }
 
         internal void OnDeactive() {
-            Debug.LogError(this.name);
             cameraHandler.Deconstruct();
             playerReference = null;
         }
