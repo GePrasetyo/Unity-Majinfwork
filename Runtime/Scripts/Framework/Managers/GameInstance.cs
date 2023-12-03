@@ -37,7 +37,7 @@ namespace Majingari.Framework {
         }
 
         private void OnSceneUnloaded(Scene scene) {
-            if (worldSetting.MapConfigList.ContainsKey(scene.name)) {
+            if (worldSetting?.MapConfigList.ContainsKey(scene.name) == true) {
                 worldSetting.MapConfigList[scene.name].TheGameMode.OnDeactive();
             }
         }
@@ -47,7 +47,7 @@ namespace Majingari.Framework {
                 return;
             }
 
-            if (worldSetting.MapConfigList.ContainsKey(scene.name)) {
+            if (worldSetting?.MapConfigList.ContainsKey(scene.name) == true) {
                 worldSetting.MapConfigList[scene.name].TheGameMode.OnActive();
             }
 
