@@ -16,7 +16,6 @@ namespace Majingari.Framework {
             Debug.Log($"Game Instance generated : {this.GetType()}");
 
             SceneManager.sceneLoaded += OnSceneLoaded;
-            SceneManager.activeSceneChanged += OnActiveSceneChanged;
         }
 
         public void Construct(WorldConfig _worldSetting) {
@@ -28,6 +27,12 @@ namespace Majingari.Framework {
             Object.DontDestroyOnLoad(fsm.gameObject);
 
             Start();
+            ServiceLocator.Resolve<TickSignal>().RegisterObject(Tick);
+        }
+
+        public void Deconstruct() {
+            ServiceLocator.Resolve<TickSignal>().UnRegisterObject(Tick);
+            Stop();
         }
 
         protected void OnActiveSceneChanged(Scene prevScene, Scene nextScene) {
@@ -54,6 +59,10 @@ namespace Majingari.Framework {
         }
 
         protected virtual void Tick() {
+
+        }
+
+        protected virtual void Stop() {
 
         }
     }

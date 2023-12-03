@@ -34,6 +34,12 @@ namespace Majingari.Framework.World {
 
             ServiceLocator.Register<GameInstance>(obj.classGameInstance);
             obj.classGameInstance.Construct(obj.worldConfigObject);
+            
+            Application.quitting += obj.OnGameQuit;
+        }
+
+        private void OnGameQuit() {
+            classGameInstance.Deconstruct();
         }
 
 #if UNITY_EDITOR
