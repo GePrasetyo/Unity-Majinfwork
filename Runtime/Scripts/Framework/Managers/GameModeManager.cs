@@ -22,6 +22,7 @@ namespace Majingari.Framework.World {
         }
 
         public void InstantiatePlayer() {
+            cameraHandler.Construct();
             playerReference = PlayerDependencyFactory.Create(_playerState, _playerPawn);
             Instantiate(_playerController);
         }
