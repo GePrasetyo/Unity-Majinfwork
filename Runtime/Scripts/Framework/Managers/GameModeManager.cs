@@ -11,6 +11,7 @@ namespace Majingari.Framework.World {
         [SerializeField] private PlayerController _playerController;
         [SerializeField] private PlayerState _playerState;
         [SerializeField] private PlayerPawn _playerPawn;
+        [SerializeReference, ClassReference] private CameraHandler cameraHandler;
 
         internal static PlayerDependency playerReference;
 

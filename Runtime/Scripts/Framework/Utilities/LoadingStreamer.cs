@@ -1,9 +1,13 @@
 using System;
-using UnityEngine;
 
 namespace Majingari.Framework.World {
     [Serializable]
     public abstract class LoadingStreamer {
-        public abstract void Construct();
+        protected delegate void LoadingStarted();
+        protected LoadingStarted _loadingStarted;
+
+        internal abstract void Construct();
+        public abstract void StartLoading(Action loadingRunning);
+        public abstract void StopLoading();
     }
 }

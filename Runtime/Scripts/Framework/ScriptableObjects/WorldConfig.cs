@@ -21,6 +21,9 @@ namespace Majingari.Framework.World {
         [SerializeReference, ClassReference] private LoadingStreamer loadingHandler;
 
         public void SetupDictionary() {
+            loadingHandler.Construct();
+            ServiceLocator.Register<LoadingStreamer>(loadingHandler);
+
             MapConfigList.Clear();
 
             if (mapList.Length != 0) {
@@ -37,8 +40,6 @@ namespace Majingari.Framework.World {
                     levelStreamDictionary[levelStreamCollection[i].sceneAddressable.AssetGUID] = levelStreamCollection[i];
                 }
             }
-
-            loadingHandler.Construct();
         }
     }
 

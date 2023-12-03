@@ -10,11 +10,15 @@ namespace Majingari.FSM {
             base.OnStateEnter(animator, stateInfo, layerIndex);
             
             SceneManager.sceneLoaded += OnSceneLoaded;
-            SceneManager.LoadScene(map.mapName, LoadSceneMode.Single);
+            ServiceLocator.Resolve<LoadingStreamer>().StartLoading(LoadScene);
         }
 
         protected virtual void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
             SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+
+        private void LoadScene() {
+            SceneManager.LoadScene(map.mapName, LoadSceneMode.Single);
         }
     }
 }

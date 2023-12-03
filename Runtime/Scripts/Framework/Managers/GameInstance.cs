@@ -9,6 +9,7 @@ namespace Majingari.Framework {
     [Serializable]
     public class GameInstance {
         protected WorldConfig worldSetting;
+        [SerializeField] protected bool stopLoadingOnSceneLoaded;
         [SerializeField] protected RuntimeAnimatorController gameStateMachine;
 
         public GameInstance() {
@@ -41,6 +42,10 @@ namespace Majingari.Framework {
             if (worldSetting.MapConfigList.ContainsKey(scene.name)) {
                 worldSetting.MapConfigList[scene.name].TheGameMode.InitiateGameManager();
                 worldSetting.MapConfigList[scene.name].TheGameMode.InstantiatePlayer();
+            }
+
+            if(stopLoadingOnSceneLoaded) {
+                ServiceLocator.Resolve<LoadingStreamer>().StopLoading();
             }
         }
 
