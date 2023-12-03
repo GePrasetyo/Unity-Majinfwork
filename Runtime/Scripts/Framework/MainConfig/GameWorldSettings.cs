@@ -30,7 +30,7 @@ namespace Majingari.Framework.World {
                 return;
             }
 
-            obj.worldConfigObject.SetupDictionary();
+            obj.worldConfigObject.SetupSceneConfiguration();
 
             ServiceLocator.Register<GameInstance>(obj.classGameInstance);
             obj.classGameInstance.Construct(obj.worldConfigObject);
@@ -39,6 +39,7 @@ namespace Majingari.Framework.World {
         }
 
         private void OnGameQuit() {
+            ServiceLocator.Unregister<GameInstance>(out string message);
             classGameInstance.Deconstruct();
         }
 

@@ -16,6 +16,7 @@ namespace Majingari.Framework {
             Debug.Log($"Game Instance generated : {this.GetType()}");
 
             SceneManager.sceneLoaded += OnSceneLoaded;
+            SceneManager.sceneUnloaded += OnSceneUnloaded;
         }
 
         public void Construct(WorldConfig _worldSetting) {
@@ -35,8 +36,10 @@ namespace Majingari.Framework {
             Stop();
         }
 
-        protected void OnActiveSceneChanged(Scene prevScene, Scene nextScene) {
-
+        private void OnSceneUnloaded(Scene scene) {
+            if (worldSetting.MapConfigList.ContainsKey(scene.name)) {
+                worldSetting.MapConfigList[scene.name].TheGameMode.OnDeactive();
+            }
         }
 
         protected void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
@@ -45,8 +48,7 @@ namespace Majingari.Framework {
             }
 
             if (worldSetting.MapConfigList.ContainsKey(scene.name)) {
-                worldSetting.MapConfigList[scene.name].TheGameMode.InitiateGameManager();
-                worldSetting.MapConfigList[scene.name].TheGameMode.InstantiatePlayer();
+                worldSetting.MapConfigList[scene.name].TheGameMode.OnActive();
             }
 
             if(stopLoadingOnSceneLoaded) {

@@ -5,6 +5,10 @@ namespace Majingari.Framework.World {
         private void Start() {
             ServiceLocator.Register<GameState>(this);
         }
+
+        private void OnDestroy() {
+            ServiceLocator.Unregister<GameState>(out string message);
+        }
     }
 
 }

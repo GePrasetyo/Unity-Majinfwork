@@ -9,5 +9,9 @@ namespace Majingari.Framework {
 
             _controlledCamera = new GameObject("Player Camera").AddComponent<Camera>();
         }
+
+        public override void Deconstruct() {
+            
+        }
     }
 }

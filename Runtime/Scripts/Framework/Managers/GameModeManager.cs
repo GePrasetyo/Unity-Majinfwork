@@ -15,13 +15,25 @@ namespace Majingari.Framework.World {
 
         internal static PlayerDependency playerReference;
 
-        public void InitiateGameManager() {
+        internal void OnActive() {
+            InitiateGameManager();
+            InstantiatePlayer();
+            Debug.LogError(this.name);
+        }
+
+        internal void OnDeactive() {
+            Debug.LogError(this.name);
+            cameraHandler.Deconstruct();
+            playerReference = null;
+        }
+
+        internal void InitiateGameManager() {
             Instantiate(_gameState);
             Instantiate(_hudManager);
             Instantiate(_inputManager);
         }
 
-        public void InstantiatePlayer() {
+        internal void InstantiatePlayer() {
             cameraHandler.Construct();
             playerReference = PlayerDependencyFactory.Create(_playerState, _playerPawn);
             Instantiate(_playerController);

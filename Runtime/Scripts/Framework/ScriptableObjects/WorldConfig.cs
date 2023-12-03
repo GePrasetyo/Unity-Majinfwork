@@ -20,7 +20,7 @@ namespace Majingari.Framework.World {
 
         [SerializeReference, ClassReference] private LoadingStreamer loadingHandler;
 
-        public void SetupDictionary() {
+        public void SetupSceneConfiguration() {
             loadingHandler.Construct();
             ServiceLocator.Register<LoadingStreamer>(loadingHandler);
 
