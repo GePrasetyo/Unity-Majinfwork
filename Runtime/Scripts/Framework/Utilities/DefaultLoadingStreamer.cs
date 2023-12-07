@@ -44,6 +44,7 @@ namespace Majingari.Framework.World {
 
             GameObject.DontDestroyOnLoad(_canvas.gameObject);
             _constructed = true;
+            _fading = false;
         }
 
         public override void StartLoading(Action loadingRunning) {
