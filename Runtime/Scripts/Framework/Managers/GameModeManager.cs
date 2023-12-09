@@ -49,9 +49,13 @@ namespace Majingari.Framework.World {
             public override PlayerState GetState() => state;
             public override PlayerPawn GetPawn() => pawn;
 
-            public PlayerConstructorDependency (S _state, P _pawn) {
+            public PlayerConstructorDependency(S _state, P _pawn) {
                 state = Instantiate(_state);
-                pawn = Instantiate(_pawn);
+
+                var playerStart = FindObjectOfType<PlayerStart>();
+                Vector3 spawnPost = playerStart == null ? Vector3.zero : playerStart.transform.position;
+                Quaternion quaternion = playerStart == null ? Quaternion.identity : playerStart.transform.rotation;
+                pawn = Instantiate(_pawn, spawnPost, quaternion);
             }
         }
 
