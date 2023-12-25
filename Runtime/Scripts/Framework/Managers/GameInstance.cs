@@ -19,6 +19,11 @@ namespace Majingari.Framework {
             SceneManager.sceneUnloaded += OnSceneUnloaded;
         }
 
+        public static bool TryGetGameInstance <T> (out T gameInstance) where T : GameInstance{
+            gameInstance = ServiceLocator.Resolve<GameInstance>() as T;
+            return gameInstance != null;
+        }
+
         public void Construct(WorldConfig _worldSetting) {
             worldSetting = _worldSetting;
 
