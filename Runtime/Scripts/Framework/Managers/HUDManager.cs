@@ -1,12 +1,5 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-
-
-namespace Majingari.Framework.World
-{
-    public class HUDManager : MonoBehaviour
-    {
+namespace Majingari.Framework.World {
+    public class HUDManager : GameComponent {
 
     }
 }

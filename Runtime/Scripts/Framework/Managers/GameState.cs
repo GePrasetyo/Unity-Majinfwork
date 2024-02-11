@@ -1,7 +1,5 @@
-using UnityEngine;
-
 namespace Majingari.Framework.World {
-    public class GameState : MonoBehaviour {
+    public class GameState : GameComponent {
         private void Start() {
             ServiceLocator.Register<GameState>(this);
         }
