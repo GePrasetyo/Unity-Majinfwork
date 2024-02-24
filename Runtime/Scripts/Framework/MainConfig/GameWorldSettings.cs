@@ -15,11 +15,9 @@ namespace Majingari.Framework.World {
         [Header("Player Setting")]
         [SerializeField] private bool editMode;
 
-        private static GameWorldSettings instance;
-
         [RuntimeInitializeOnLoadMethod]
         private static void WorldBuilderStart() {
-            instance = Resources.Load<GameWorldSettings>(nameof(GameWorldSettings));
+            var instance = Resources.Load<GameWorldSettings>(nameof(GameWorldSettings));
 
             if(instance == null) {
                 Debug.LogError("You don't have world settings, please create the world setting first");
@@ -45,7 +43,9 @@ namespace Majingari.Framework.World {
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void InitializeInstanceScriptableObject() {
-            if(instance == null) {
+            var instance = Resources.Load<GameWorldSettings>(nameof(GameWorldSettings));
+
+            if (instance == null) {
                 Debug.LogError("You don't have world settings, please create the world setting first");
                 return;
             }
