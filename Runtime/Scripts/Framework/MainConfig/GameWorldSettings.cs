@@ -1,4 +1,6 @@
 using UnityEngine;
+using System;
+
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -8,34 +10,49 @@ namespace Majingari.Framework.World {
     internal sealed class GameWorldSettings : ScriptableObject {
         [SerializeReference, ClassReference] public GameInstance classGameInstance;
         [SerializeField] private WorldConfig worldConfigObject;
+        [SerializeField] private GameScriptableObject[] preInitializeSciptableObjects = Array.Empty<GameScriptableObject>(); 
 
         [Header("Player Setting")]
         [SerializeField] private bool editMode;
 
+        private static GameWorldSettings instance;
+
         [RuntimeInitializeOnLoadMethod]
         private static void WorldBuilderStart() {
-            var obj = Resources.Load<GameWorldSettings>(nameof(GameWorldSettings));
+            instance = Resources.Load<GameWorldSettings>(nameof(GameWorldSettings));
 
-            if(obj == null) {
+            if(instance == null) {
                 Debug.LogError("You don't have world settings, please create the world setting first");
                 return;
             }
 
-            if (obj.editMode) {
+            if (instance.editMode) {
                 return;
             }
 
-            if (obj.worldConfigObject == null) {
+            if (instance.worldConfigObject == null) {
                 Debug.LogError("You don't have World Config, please attach World Config first");
                 return;
             }
 
-            obj.worldConfigObject.SetupSceneConfiguration();
+            instance.worldConfigObject.SetupSceneConfiguration();
 
-            ServiceLocator.Register<GameInstance>(obj.classGameInstance);
-            obj.classGameInstance.Construct(obj.worldConfigObject);
+            ServiceLocator.Register<GameInstance>(instance.classGameInstance);
+            instance.classGameInstance.Construct(instance.worldConfigObject);
             
-            Application.quitting += obj.OnGameQuit;
+            Application.quitting += instance.OnGameQuit;
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void InitializeInstanceScriptableObject() {
+            if(instance == null) {
+                Debug.LogError("You don't have world settings, please create the world setting first");
+                return;
+            }
+
+            for (int i = 0; i < instance.preInitializeSciptableObjects.Length; i++) {
+                instance.preInitializeSciptableObjects[i]?.PreInitialize();
+            }
         }
 
         private void OnGameQuit() {

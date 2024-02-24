@@ -8,7 +8,7 @@ namespace Majingari.Framework.Pool {
         private Transform parentPool;
 
         /// <summary>
-        /// Initialize Pool by prefab reference
+        /// Initialize Pool by prefab reference.
         /// </summary>
         /// <typeparam name="T">Unity component</typeparam>
         /// <param name="key">prefab reference</param>
@@ -88,10 +88,23 @@ namespace Majingari.Framework.Pool {
     }
 
     public static class PoolRefExtension {
+        /// <summary>
+        ///  "Careful this only available after the first scene loaded!"
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="key"></param>
+        /// <param name="output"></param>
+        /// <returns></returns>
         public static bool InstantiatePoolRef<T>(this object key, out T output) where T : Component {
             return ServiceLocator.Resolve<PoolByReference>().GetPoolRef(out output, key);
         }
 
+        /// <summary>
+        ///  "Careful this only available after the first scene loaded!"
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="item"></param>
+        /// <param name="key"></param>
         public static void ReleaseThisPoolRef<T>(this object item, object key) where T : Component {
             ServiceLocator.Resolve<PoolByReference>().Release<T>(key, item);
         }
