@@ -21,7 +21,7 @@ namespace Majingari.Framework.World {
         [SerializeReference, ClassReference] private LoadingStreamer loadingHandler;
 
         public void SetupSceneConfiguration() {
-            loadingHandler.Construct();
+            loadingHandler.Initialize();
             ServiceLocator.Register<LoadingStreamer>(loadingHandler);
 
             MapConfigList.Clear();

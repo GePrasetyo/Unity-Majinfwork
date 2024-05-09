@@ -12,7 +12,7 @@ namespace Majingari.Framework.World {
         private Canvas _canvas;
         private CanvasGroup _canvasGroup;
 
-        internal override void Construct() {
+        protected override void Construct() {
             _canvas = new GameObject("ScreenOverlayCanvas").AddComponent<Canvas>();
             _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             _canvas.sortingOrder = 10;

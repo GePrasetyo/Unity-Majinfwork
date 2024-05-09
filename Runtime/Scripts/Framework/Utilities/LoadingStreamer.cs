@@ -6,7 +6,12 @@ namespace Majingari.Framework.World {
         protected delegate void LoadingStarted();
         protected LoadingStarted _loadingStarted;
 
-        internal abstract void Construct();
+        internal void Initialize() {
+            Construct();
+        }
+
+        protected abstract void Construct();
+
         public abstract void StartLoading(Action loadingRunning);
         public abstract void StopLoading();
     }
