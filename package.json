@@ -1,7 +1,7 @@
 {
   "name": "com.majingari.framework",
   "displayName": "Majingari Framework",
-  "version": "0.0.1-preview",
+  "version": "0.0.2-preview",
   "description": "Majingari Framework.",
   "unity": "2022.3",
   "unityRelease": "10f1",
