@@ -3,14 +3,14 @@ using UnityEditor;
 using System;
 
 // Register the drawer for the new MultiStringReferenceAttribute
-[CustomPropertyDrawer(typeof(StringsReferenceAttribute), true)]
-public class StringsReferenceDrawer : PropertyDrawer {
+[CustomPropertyDrawer(typeof(StringReferenceAttribute), true)]
+public class StringReferenceDrawer : PropertyDrawer {
     public string[] options;
     private Rect dropDownRect;
     private Rect fieldRect;
 
     public override void OnGUI(Rect position, SerializedProperty property, GUIContent label) {
-        var stringReferenceAttribute = attribute as StringsReferenceAttribute;
+        var stringReferenceAttribute = attribute as StringReferenceAttribute;
 
         if (options == null) {
             options = stringReferenceAttribute.GetOptions();

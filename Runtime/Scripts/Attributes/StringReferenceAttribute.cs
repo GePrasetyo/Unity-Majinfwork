@@ -2,11 +2,11 @@ using System;
 using UnityEngine;
 
 [AttributeUsage(AttributeTargets.Field)]
-public class StringsReferenceAttribute : PropertyAttribute {
+public class StringReferenceAttribute : PropertyAttribute {
     public Type classType;
     public string propertyName;
 
-    public StringsReferenceAttribute(Type classType, string propertyName) {
+    public StringReferenceAttribute(Type classType, string propertyName) {
         this.classType = classType;
         this.propertyName = propertyName;
     }
