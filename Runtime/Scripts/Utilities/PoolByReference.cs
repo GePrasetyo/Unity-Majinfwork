@@ -3,17 +3,11 @@ using UnityEngine;
 using UnityEngine.Pool;
 
 namespace Majingari.Framework.Pool {
-    public class PoolByReference {
-        private readonly Dictionary<object, object> poolbyRefCollection = new Dictionary<object, object>();
-        private Transform parentPool;
+    public static class PoolByReference {
+        private static readonly Dictionary<object, object> poolbyRefCollection = new Dictionary<object, object>();
+        private static Transform parentPool;
 
-        /// <summary>
-        /// Initialize Pool by prefab reference.
-        /// </summary>
-        /// <typeparam name="T">Unity component</typeparam>
-        /// <param name="key">prefab reference</param>
-        /// <param name="capacity">capacity to instantiate</param>
-        internal void InitializePoolRef<T>(object key, int capacity = 1) where T : Component {
+        internal static void InitializePoolRef<T>(object key, int capacity = 1) where T : Component {
             if ((T)key == null) {
                 return;
             }
@@ -22,13 +16,13 @@ namespace Majingari.Framework.Pool {
         }
 
         /// <summary>
-        /// Get Pool by Reference
+        /// Instantiate from Pooling System
         /// </summary>
-        /// <typeparam name="T">Unity component</typeparam>
-        /// <param name="go">output pool</param>
-        /// <param name="key">prefab as a key</param>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="key"></param>
+        /// <param name="output"></param>
         /// <returns></returns>
-        internal bool GetPoolRef<T>(out T output, object key) where T : Component {
+        public static bool InstantiatePoolRef<T>(this object key, out T output) where T : Component {
             if ((T)key == null) {
                 output = null;
                 return false;
@@ -44,34 +38,91 @@ namespace Majingari.Framework.Pool {
         }
 
         /// <summary>
-        /// Release object to pool
+        /// Instantiate from Pooling System and Set Parent
         /// </summary>
-        /// <typeparam name="T">Unity Component</typeparam>
-        /// <param name="key">prefab reference</param>
-        /// <param name="item">item to release to pool</param>
-        internal void Release<T>(object key, object item) where T : Component {
-            if ((T)key == null || (T)item == null) {
+        /// <typeparam name="T"></typeparam>
+        /// <param name="key"></param>
+        /// <param name="parent"></param>
+        /// <param name="output"></param>
+        /// <returns></returns>
+        public static bool InstantiatePoolRef<T>(this object key, Transform parent, out T output) where T : Component {
+            if (key.InstantiatePoolRef(out output)) {
+                output.transform.SetParent(parent, worldPositionStays: false);
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Instantiate from Pooling System
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="key"></param>
+        /// <param name="position"></param>
+        /// <param name="rotation"></param>
+        /// <param name="output"></param>
+        /// <returns></returns>
+        public static bool InstantiatePoolRef<T>(this object key, Vector3 position, Quaternion rotation, out T output) where T : Component {
+            if (key.InstantiatePoolRef(out output)) {
+                output.transform.SetPositionAndRotation(position, rotation);
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Instantiate from Pooling System, Set the parent transfom > World Position
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="key"></param>
+        /// <param name="position">World Position</param>
+        /// <param name="rotation">World Rotation</param>
+        /// <param name="parent"></param>
+        /// <param name="output"></param>
+        /// <returns></returns>
+        public static bool InstantiatePoolRef<T>(this object key, Vector3 position, Quaternion rotation, Transform parent, out T output) where T : Component {
+            if (key.InstantiatePoolRef(out output)) {
+                output.transform.SetParent(parent, worldPositionStays: false);
+                output.transform.SetPositionAndRotation(position, rotation);
+                return true;
+            }
+
+            return false;
+        }
+
+        public static void Release<T>(this object item, object key, bool keepOn = false) where T : Component {
+            T itemToRelease = item as T;
+
+            if (key == null || itemToRelease == null) {
                 return;
             }
 
+            if (ReferenceEquals(key, item)) {
+                throw new System.ArgumentException("Key and item to release are the same reference. You cannot use a pooled item as the key to release.", nameof(item));
+            }
+
             if (poolbyRefCollection.TryGetValue(key, out var op)) {
-                (op as ObjectPool<T>).Release((T)item);
+                itemToRelease.gameObject.SetActive(keepOn);
+                (op as ObjectPool<T>).Release(itemToRelease);
             }
         }
 
-        private T CreatePooledItem<T>(T item) where T : Component {
+        private static T CreatePooledItem<T>(T item) where T : Component {
             return Object.Instantiate(item, parentPool.transform);
         }
 
-        private void OnReturnedToPool<T>(T obj) where T : Component {
+        private static void OnReturnedToPool<T>(T obj) where T : Component {
             obj.transform.SetParent(parentPool);
         }
 
-        private void OnTakeFromPool<T>(T obj) where T : Component {
+        private static void OnTakeFromPool<T>(T obj) where T : Component {
             obj.transform.SetParent(null);
+            obj.gameObject.SetActive(true);
         }
 
-        private void OnDestroyPoolObject<T>(T obj) where T : Component {
+        private static void OnDestroyPoolObject<T>(T obj) where T : Component {
             Object.Destroy(obj.gameObject);
         }
 
@@ -80,33 +131,7 @@ namespace Majingari.Framework.Pool {
             var obj = new GameObject();
             obj.name = "[Service] Game Pool";
             Object.DontDestroyOnLoad(obj);
-
-            var pool = new PoolByReference();
-            pool.parentPool = obj.transform;
-            ServiceLocator.Register<PoolByReference>(pool);
-        }
-    }
-
-    public static class PoolRefExtension {
-        /// <summary>
-        ///  "Careful this only available after the first scene loaded!"
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="key"></param>
-        /// <param name="output"></param>
-        /// <returns></returns>
-        public static bool InstantiatePoolRef<T>(this object key, out T output) where T : Component {
-            return ServiceLocator.Resolve<PoolByReference>().GetPoolRef(out output, key);
-        }
-
-        /// <summary>
-        ///  "Careful this only available after the first scene loaded!"
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="item"></param>
-        /// <param name="key"></param>
-        public static void ReleaseThisPoolRef<T>(this object item, object key) where T : Component {
-            ServiceLocator.Resolve<PoolByReference>().Release<T>(key, item);
+            parentPool = obj.transform;
         }
     }
 }
