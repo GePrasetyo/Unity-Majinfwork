@@ -93,7 +93,7 @@ namespace Majinfwork.World {
         }
 
         private static void CreateGameWorldAsset() {
-            Debug.LogError("GameWorldSettings Created");
+            Debug.Log("GameWorldSettings Created");
             string resourcesPath = "Assets/Resources";
             var asset = CreateInstance<GameWorldSettings>();
 
