@@ -1,7 +1,8 @@
 using System.Threading;
 using System.Threading.Tasks;
+using UnityEngine;
 
-namespace Majinfwork {
+namespace Majinfwork.TaskHelper {
     public class ReentryCanceller {
         private const int reentryDelay = 10;
         private CancellationTokenSource canceller;
@@ -11,6 +12,7 @@ namespace Majinfwork {
             while (canceller != null) {
                 await Task.Delay(reentryDelay);
             }
+
             canceller = CancellationTokenSource.CreateLinkedTokenSource(cancel);
             return canceller.Token;
         }
