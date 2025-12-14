@@ -10,11 +10,12 @@
   "licensesUrl": "https://github.com/GePrasetyo/UnrealFramework-forUnity/wiki/License",
   "dependencies": {
     "com.unity.addressables": "1.21.17",
-    "com.unity.netcode.gameobjects": "1.6.0"
- },
+    "com.unity.netcode.gameobjects": "1.6.0",
+    "com.unity.localization": "1.5.9"
+  },
   "author": {
     "name": "Dhimas Prasetyo",
-    "email": "dhimasgppantoja@gmail.com",
-    "url": "https://github.com/GePrasetyo/UnrealFramework-forUnity"
+    "url": "https://github.com/GePrasetyo/UnrealFramework-forUnity",
+    "email": "dhimasgppantoja@gmail.com"
   }
 }
