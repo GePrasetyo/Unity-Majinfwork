@@ -1,6 +1,6 @@
 using UnityEngine;
 using System;
-
+using System.Reflection;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -80,7 +80,7 @@ namespace Majingari.Framework.World {
             }
         }
 
-        [MenuItem("Game Word Settings/Get World Settings")]
+        [MenuItem("Majingari Framework/Get World Settings")]
         public static void GetTheInstance() {
             var obj = Resources.Load<GameWorldSettings>(nameof(GameWorldSettings));
 
@@ -103,8 +103,34 @@ namespace Majingari.Framework.World {
 
             string assetPath = resourcesPath + "/GameWorldSettings.asset";
             AssetDatabase.CreateAsset(asset, assetPath);
+            asset.classGameInstance = new PersistentGameInstance();
             AssetDatabase.SaveAssets();
+
+            SetDefaultLevelState(asset);
             Selection.activeObject = asset;
+        }
+
+        private static void SetDefaultLevelState (GameWorldSettings asset) {
+            FieldInfo field = typeof(GameInstance).GetField("gameStateMachine", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            if (field == null) {
+                Debug.LogError("Failed to find field 'gameStateMachine' via reflection. Check spelling and access level.");
+                return;
+            }
+
+            var controller = Resources.Load<RuntimeAnimatorController>("LevelStateMachine");
+
+            if (controller == null) {
+                string resourcesPath = "Assets/Resources";
+
+                if (!AssetDatabase.IsValidFolder(resourcesPath)) {
+                    AssetDatabase.CreateFolder("Assets", "Resources");
+                }
+
+                controller = UnityEditor.Animations.AnimatorController.CreateAnimatorControllerAtPath($"{resourcesPath}/LevelStateMachine.controller");
+            }
+
+            field.SetValue(asset.classGameInstance, controller);
         }
 #endif
     }
