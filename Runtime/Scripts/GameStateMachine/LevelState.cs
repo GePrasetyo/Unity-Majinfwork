@@ -1,8 +1,8 @@
-using Majingari.Framework.World;
+using Majinfwork.World;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Majingari.FSM {
+namespace Majinfwork.FSM {
     public class LevelState : GameState {
         [SerializeField] private SceneReference map;
 

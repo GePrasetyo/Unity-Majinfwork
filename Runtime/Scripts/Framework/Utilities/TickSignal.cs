@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace Majingari.Framework {
+namespace Majinfwork {
     public class TickSignal : MonoBehaviour {
         private Action tickSubscriber;
         private Action fixedTickSubscriber;

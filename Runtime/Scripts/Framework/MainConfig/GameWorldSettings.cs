@@ -6,7 +6,7 @@ using System.Reflection;
 using UnityEditor;
 #endif
 
-namespace Majingari.Framework.World {
+namespace Majinfwork.World {
     internal sealed class GameWorldSettings : ScriptableObject {
         [SerializeReference, ClassReference] public GameInstance classGameInstance;
         [SerializeField] private WorldConfig worldConfigObject;
@@ -95,7 +95,7 @@ namespace Majingari.Framework.World {
         private static void CreateGameWorldAsset() {
             Debug.LogError("GameWorldSettings Created");
             string resourcesPath = "Assets/Resources";
-            var asset = ScriptableObject.CreateInstance<GameWorldSettings>();
+            var asset = CreateInstance<GameWorldSettings>();
 
             if (!AssetDatabase.IsValidFolder(resourcesPath)) {
                 AssetDatabase.CreateFolder("Assets", "Resources");

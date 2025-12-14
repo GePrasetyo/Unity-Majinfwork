@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Assertions;
 
-namespace Majingari.Framework {
+namespace Majinfwork {
     public static class PhysxExtension {
         public static Collider[] colliderHitAllocation = new Collider[128];
         public static RaycastHit[] hitAllocation = new RaycastHit[256];
@@ -60,7 +60,7 @@ namespace Majingari.Framework {
                     return false;
                 }
 
-                if ((destructabkeLayer.value & (1 << hitAllocation[0].collider.gameObject.layer)) != 0) {
+                if ((destructabkeLayer.value & 1 << hitAllocation[0].collider.gameObject.layer) != 0) {
                     if (hitAllocation[0].collider.TryGetComponent(out IDestroyable obj)) {
                         return !obj.IsDestroyable;
                     }

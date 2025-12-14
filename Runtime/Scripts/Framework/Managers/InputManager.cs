@@ -1,5 +1,4 @@
-namespace Majingari.Framework.World
-{
+namespace Majinfwork.World {
     public class InputManager : GameComponent {
         
     }

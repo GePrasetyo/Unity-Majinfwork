@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Majingari.FSM {
+namespace Majinfwork.FSM {
     [SharedBetweenAnimators]
     public class GameState : StateMachineBehaviour {
         public override void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex) {

@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 
 
-namespace Majingari.Framework {
+namespace Majinfwork {
     public sealed class PlayerStart : MonoBehaviour {
 #if UNITY_EDITOR
         private void OnDrawGizmos() {

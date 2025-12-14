@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Majingari.Framework {
+namespace Majinfwork {
     public static class QuaternionExtension {
         public static Quaternion IsolateXRotation(this Quaternion q) {
             float theta_x = Mathf.Atan2(q.x, q.w);

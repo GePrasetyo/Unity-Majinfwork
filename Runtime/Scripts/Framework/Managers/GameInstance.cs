@@ -1,11 +1,10 @@
-using Majingari.Framework.World;
-
+using Majinfwork.World;
 using System;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
-namespace Majingari.Framework {
+namespace Majinfwork {
     [Serializable]
     public class GameInstance {
         protected WorldConfig worldSetting;
@@ -13,7 +12,7 @@ namespace Majingari.Framework {
         [SerializeField] protected RuntimeAnimatorController gameStateMachine;
 
         public GameInstance() {
-            Debug.Log($"Game Instance generated : {this.GetType()}");
+            Debug.Log($"Game Instance generated : {GetType()}");
 
             SceneManager.sceneLoaded += OnSceneLoaded;
             SceneManager.sceneUnloaded += OnSceneUnloaded;

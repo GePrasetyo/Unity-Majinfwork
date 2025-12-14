@@ -1,6 +1,6 @@
 using UnityEditor;
 
-namespace Majingari.Framework.World {
+namespace Majinfwork.World {
     public class StateMachineEditor : Editor {
 
         [MenuItem("Majingari Framework/Level State Machine")]

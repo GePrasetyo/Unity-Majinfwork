@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 using System.Reflection;
 
-namespace Majingari.Framework {
+namespace Majinfwork {
     [CustomPropertyDrawer(typeof(ClassReferenceAttribute))]
     public class ClassReferenceDrawer : PropertyDrawer {
         private Type[] types;

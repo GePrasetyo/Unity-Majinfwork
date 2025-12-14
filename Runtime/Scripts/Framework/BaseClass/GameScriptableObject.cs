@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Majingari.Framework.World {
+namespace Majinfwork.World {
     public abstract class GameScriptableObject : ScriptableObject {
         /// <summary>
         /// This triggered after splash screen loaded and before first scene loaded

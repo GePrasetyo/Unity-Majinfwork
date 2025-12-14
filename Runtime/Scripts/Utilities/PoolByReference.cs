@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Pool;
 
-namespace Majingari.Framework.Pool {
+namespace Majinfwork.Pool {
     public static class PoolByReference {
         private static readonly Dictionary<object, object> poolbyRefCollection = new Dictionary<object, object>();
         private static Transform parentPool;

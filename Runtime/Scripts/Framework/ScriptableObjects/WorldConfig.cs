@@ -9,7 +9,7 @@ using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEditor;
 #endif
 
-namespace Majingari.Framework.World {
+namespace Majinfwork.World {
     [CreateAssetMenu(fileName = "Default World Config", menuName = "Config Object/World Config")]
     public class WorldConfig : ScriptableObject {
         [SerializeField] private WorldAssetConfig[] mapList = new WorldAssetConfig[0];

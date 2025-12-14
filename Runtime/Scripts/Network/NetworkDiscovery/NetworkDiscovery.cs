@@ -6,7 +6,7 @@ using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
-namespace Majingari.Network {
+namespace Majinfwork.Network {
     [DisallowMultipleComponent]
     public abstract class NetworkDiscovery<TBroadCast, TResponse>
         where TBroadCast : INetworkSerializable, new()

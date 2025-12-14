@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Majingari.Framework.World {
+namespace Majinfwork.World {
     public class GameComponent : MonoBehaviour {
 
     }

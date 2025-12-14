@@ -4,7 +4,7 @@ using System.Net.NetworkInformation;
 using System.Net;
 using UnityEngine;
 
-namespace Majingari.Network {
+namespace Majinfwork.Network {
     public static class NetworkUtility  {
         internal static ushort GetAvailablePort() {
             // Evaluate current system TCP connections. This is the same information provided

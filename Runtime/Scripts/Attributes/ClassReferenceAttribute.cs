@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace Majingari.Framework {
+namespace Majinfwork {
     [AttributeUsage(AttributeTargets.Field)]
     public class ClassReferenceAttribute : PropertyAttribute {
 

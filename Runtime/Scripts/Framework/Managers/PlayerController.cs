@@ -1,6 +1,4 @@
-using UnityEngine;
-
-namespace Majingari.Framework.World {
+namespace Majinfwork.World {
     public abstract class PlayerController : Actor {
         protected static bool GetPawn<P>(out P pawn) where P : PlayerPawn {
             pawn = GameModeManager.playerReference?.GetPawn() as P;

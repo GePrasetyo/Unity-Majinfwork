@@ -6,7 +6,7 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.SceneManagement;
 
-namespace Majingari.Framework.World {
+namespace Majinfwork.World {
     public class LevelStreamer {
         internal async Task LoadAddressableSceneAsync(AddressableSceneHandler sceneToLoad, Action<string> loadComplete) {
             if (sceneToLoad.status != SceneLoadStatus.Unloaded) {
@@ -83,7 +83,7 @@ namespace Majingari.Framework.World {
             ServiceLocator.Register<LevelStreamer>(new LevelStreamer());
         }
 
-        public async Task<T> AwaitHandleWithCancellation<T>(AsyncOperationHandle<T> handle, CancellationToken cancellationToken, int timeoutSec = Timeout.Infinite) {
+        private async Task<T> AwaitHandleWithCancellation<T>(AsyncOperationHandle<T> handle, CancellationToken cancellationToken, int timeoutSec = Timeout.Infinite) {
             Task<T> operationTask = handle.Task;
             Task cancellationTask = Task.Delay(timeoutSec == Timeout.Infinite ? Timeout.Infinite : timeoutSec * 1000, cancellationToken);
             Task completedTask = await Task.WhenAny(operationTask, cancellationTask);

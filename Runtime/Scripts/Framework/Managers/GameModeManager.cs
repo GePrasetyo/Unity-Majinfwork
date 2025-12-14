@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace Majingari.Framework.World {
+namespace Majinfwork.World {
     [Serializable]
     [CreateAssetMenu(fileName = "Default Game Mode Config", menuName = "Config Object/Game Mode Config")]
     public class GameModeManager : ScriptableObject {

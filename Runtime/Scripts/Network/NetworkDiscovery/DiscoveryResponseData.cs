@@ -1,6 +1,6 @@
 using Unity.Netcode;
 
-namespace Majingari.Network {
+namespace Majinfwork.Network {
     public class DiscoveryResponseData : INetworkSerializable {
         public ushort port;
         public string serverName;

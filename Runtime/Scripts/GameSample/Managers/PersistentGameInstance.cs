@@ -1,4 +1,4 @@
-using Majingari.Framework;
+using Majinfwork;
 
 public class PersistentGameInstance : GameInstance {
     public string GIName;

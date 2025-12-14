@@ -1,14 +1,14 @@
 using UnityEngine;
 
-namespace Majingari.Framework {
+namespace Majinfwork {
     public static class VectorExtension {
         private enum Axis { X, Y, Z, XY, XZ, YZ }
-        public static Vector3 ExcludingX(this Vector3 self) => Excluding(self, Axis.X);
-        public static Vector3 ExcludingY(this Vector3 self) => Excluding(self, Axis.Y);
-        public static Vector3 ExcludingZ(this Vector3 self) => Excluding(self, Axis.Z);
-        public static Vector3 ExcludingXY(this Vector3 self) => Excluding(self, Axis.XY);
-        public static Vector3 ExcludingXZ(this Vector3 self) => Excluding(self, Axis.XZ);
-        public static Vector3 ExcludingYZ(this Vector3 self) => Excluding(self, Axis.YZ);
+        public static Vector3 ExcludingX(this Vector3 self) => self.Excluding(Axis.X);
+        public static Vector3 ExcludingY(this Vector3 self) => self.Excluding(Axis.Y);
+        public static Vector3 ExcludingZ(this Vector3 self) => self.Excluding(Axis.Z);
+        public static Vector3 ExcludingXY(this Vector3 self) => self.Excluding(Axis.XY);
+        public static Vector3 ExcludingXZ(this Vector3 self) => self.Excluding(Axis.XZ);
+        public static Vector3 ExcludingYZ(this Vector3 self) => self.Excluding(Axis.YZ);
 
         private static Vector3 Excluding(this Vector3 self, Axis axis) {
             switch (axis) {
@@ -30,12 +30,12 @@ namespace Majingari.Framework {
 
         }
 
-        public static Vector3 InvertX(this Vector3 self) => Invert(self, Axis.X);
-        public static Vector3 InvertY(this Vector3 self) => Invert(self, Axis.Y);
-        public static Vector3 InvertZ(this Vector3 self) => Invert(self, Axis.Z);
-        public static Vector3 InvertXY(this Vector3 self) => Invert(self, Axis.XY);
-        public static Vector3 InvertXZ(this Vector3 self) => Invert(self, Axis.XZ);
-        public static Vector3 InvertYZ(this Vector3 self) => Invert(self, Axis.YZ);
+        public static Vector3 InvertX(this Vector3 self) => self.Invert(Axis.X);
+        public static Vector3 InvertY(this Vector3 self) => self.Invert(Axis.Y);
+        public static Vector3 InvertZ(this Vector3 self) => self.Invert(Axis.Z);
+        public static Vector3 InvertXY(this Vector3 self) => self.Invert(Axis.XY);
+        public static Vector3 InvertXZ(this Vector3 self) => self.Invert(Axis.XZ);
+        public static Vector3 InvertYZ(this Vector3 self) => self.Invert(Axis.YZ);
         public static Vector3 InvertAll(this Vector3 self) => -self;
 
         private static Vector3 Invert(this Vector3 self, Axis axis) {
@@ -57,9 +57,9 @@ namespace Majingari.Framework {
             }
         }
 
-        public static float GetRotationAngleX(this Vector3 self) => GetRotationAngle(self, Axis.X);
-        public static float GetRotationAngleY(this Vector3 self) => GetRotationAngle(self, Axis.Y);
-        public static float GetRotationAngleZ(this Vector3 self) => GetRotationAngle(self, Axis.Z);
+        public static float GetRotationAngleX(this Vector3 self) => self.GetRotationAngle(Axis.X);
+        public static float GetRotationAngleY(this Vector3 self) => self.GetRotationAngle(Axis.Y);
+        public static float GetRotationAngleZ(this Vector3 self) => self.GetRotationAngle(Axis.Z);
 
 
         private static float GetRotationAngle(this Vector3 self, Axis axis) {
@@ -76,7 +76,7 @@ namespace Majingari.Framework {
                     angleInDegrees = Mathf.Atan2(direction.z, direction.x) * Mathf.Rad2Deg;
                     break;
                 case Axis.Z:
-                    angleInDegrees = (Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
+                    angleInDegrees = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
                     break;
                 case Axis.XY:
                     break;
@@ -127,7 +127,7 @@ namespace Majingari.Framework {
             if (v.sqrMagnitude > 0.01f)
                 v.Normalize();
 
-            var sign = (v.y < 0) ? -1.0f : 1.0f;
+            var sign = v.y < 0 ? -1.0f : 1.0f;
             return Vector2.Angle(Vector2.right, v) * sign;
         }
     }

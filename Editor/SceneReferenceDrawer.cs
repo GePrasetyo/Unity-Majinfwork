@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace Majingari.Framework.World {
+namespace Majinfwork.World {
     [CustomPropertyDrawer(typeof(SceneReference))]
     public class SceneReferenceDrawer : PropertyDrawer {
         private static SceneReference instance;

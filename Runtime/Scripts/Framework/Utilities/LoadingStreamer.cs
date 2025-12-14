@@ -1,6 +1,6 @@
 using System;
 
-namespace Majingari.Framework.World {
+namespace Majinfwork.World {
     [Serializable]
     public abstract class LoadingStreamer {
         protected delegate void LoadingStarted();

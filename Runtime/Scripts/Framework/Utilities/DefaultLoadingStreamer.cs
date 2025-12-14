@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Majingari.Framework.World {
+namespace Majinfwork.World {
     public class DefaultLoadingStreamer : LoadingStreamer {
         [SerializeField, Min(0.1f)] private float _fadeSpeed = 1;
 
@@ -42,7 +42,7 @@ namespace Majingari.Framework.World {
             _canvasGroup.alpha = 0;
             _canvasGroup.enabled = false;
 
-            GameObject.DontDestroyOnLoad(_canvas.gameObject);
+            UnityEngine.Object.DontDestroyOnLoad(_canvas.gameObject);
             _constructed = true;
             _fading = false;
         }

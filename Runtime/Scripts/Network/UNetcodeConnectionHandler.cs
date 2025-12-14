@@ -5,7 +5,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Majingari.Network {
+namespace Majinfwork.Network {
     [RequireComponent(typeof(NetworkManager))]
     public class UNetcodeConnectionHandler : MonoBehaviour {
         public static event Action ConnectionEstablished;

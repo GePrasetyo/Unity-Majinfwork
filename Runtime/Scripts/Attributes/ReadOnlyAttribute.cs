@@ -1,15 +1,15 @@
 using System;
 using UnityEngine;
 
-namespace Majingari.Toolkit {
+namespace Majinfwork.Toolkit {
     [AttributeUsage(AttributeTargets.Field)]
     public class ReadOnlyAttribute : PropertyAttribute {
     }
 }
 
 #if UNITY_EDITOR
-namespace Majingari.Toolkit.Inspector {
-    using Majingari.Toolkit;
+namespace Majinfwork.Toolkit.Inspector {
+    using Majinfwork.Toolkit;
     using UnityEditor;
 
     [CustomPropertyDrawer(typeof(ReadOnlyAttribute))]

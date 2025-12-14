@@ -1,4 +1,4 @@
-namespace Majingari.Framework.World {
+namespace Majinfwork.World {
     public class GameState : GameComponent {
         private void Start() {
             ServiceLocator.Register<GameState>(this);

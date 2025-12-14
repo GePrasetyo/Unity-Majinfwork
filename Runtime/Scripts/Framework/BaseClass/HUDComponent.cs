@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Majingari.Framework.World {
+namespace Majinfwork.World {
     public abstract class HUDComponent : MonoBehaviour {
         protected void Awake() {
             Initialize();

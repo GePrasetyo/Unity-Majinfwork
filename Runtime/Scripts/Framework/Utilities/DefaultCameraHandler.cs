@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Majingari.Framework {
+namespace Majinfwork {
     public class DefaultCameraHandler : CameraHandler {
         private Camera _controlledCamera;
 

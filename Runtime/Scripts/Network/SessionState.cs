@@ -1,4 +1,4 @@
-namespace Majingari.Network {
+namespace Majinfwork.Network {
     public class SessionState {
         public string sessionName;
         public int maxPlayer;

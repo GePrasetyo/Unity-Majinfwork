@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace Majingari.Framework.World {
+namespace Majinfwork.World {
     [CustomPropertyDrawer(typeof(WorldAssetConfig))]
     public class WorldAssetConfigDrawer : PropertyDrawer {
         private static WorldAssetConfig instance;

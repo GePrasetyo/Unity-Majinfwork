@@ -2,7 +2,7 @@ using System.Net;
 using System;
 using Unity.Netcode.Transports.UTP;
 
-namespace Majingari.Network {
+namespace Majinfwork.Network {
     public class ConnectionLANSupport : NetworkDiscovery<DiscoveryBroadcastData, DiscoveryResponseData> {
         public static event Action<IPEndPoint, DiscoveryResponseData> OnLocalSessionFound;
         private UNetcodeConnectionHandler connectionHandler;
