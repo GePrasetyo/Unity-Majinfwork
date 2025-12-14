@@ -1,7 +1,7 @@
 using UnityEngine;
 
 namespace Majinfwork.World {
-    public class Actor : MonoBehaviour {
+    public abstract class Actor : MonoBehaviour {
 
     }
 }

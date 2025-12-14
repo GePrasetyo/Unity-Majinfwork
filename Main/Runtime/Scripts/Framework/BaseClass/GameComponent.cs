@@ -1,7 +1,7 @@
 using UnityEngine;
 
 namespace Majinfwork.World {
-    public class GameComponent : MonoBehaviour {
+    public abstract class GameComponent : MonoBehaviour {
 
     }
 }
