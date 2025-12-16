@@ -8,7 +8,7 @@ using UnityEngine.SceneManagement;
 
 namespace Majinfwork.World {
     public class LevelStreamer {
-        internal async Task LoadAddressableSceneAsync(AddressableSceneHandler sceneToLoad, Action<string> loadComplete) {
+        public async Task LoadAddressableSceneAsync(AddressableSceneHandler sceneToLoad, Action<string> loadComplete) {
             if (sceneToLoad.status != SceneLoadStatus.Unloaded) {
                 return;
             }
@@ -20,7 +20,7 @@ namespace Majinfwork.World {
             sceneToLoad.UpdateHandler(sceneHandle);
         }
 
-        internal async Task LoadAddressableSceneAsync(AddressableSceneHandler sceneToLoad, Action<string> loadComplete, CancellationToken ct, int timeoutSec = Timeout.Infinite) {
+        public async Task LoadAddressableSceneAsync(AddressableSceneHandler sceneToLoad, Action<string> loadComplete, CancellationToken ct, int timeoutSec = Timeout.Infinite) {
             if (sceneToLoad.status != SceneLoadStatus.Unloaded) {
                 return;
             }

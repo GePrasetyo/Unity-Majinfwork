@@ -11,7 +11,8 @@
   "dependencies": {
     "com.unity.addressables": "1.21.17",
     "com.unity.netcode.gameobjects": "1.6.0",
-    "com.unity.localization": "1.5.9"
+    "com.unity.localization": "1.5.9",
+    "com.unity.inputsystem": "1.17.0"
   },
   "author": {
     "name": "Dhimas Prasetyo",

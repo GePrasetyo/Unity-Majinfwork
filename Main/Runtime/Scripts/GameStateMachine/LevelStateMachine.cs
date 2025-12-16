@@ -3,14 +3,20 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace Majinfwork.FSM {
-    public class LevelState : GameState {
+    public class LevelStateMachine : GameStateMachine {
         [SerializeField] private SceneReference map;
 
-        public override void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex) {
-            base.OnStateEnter(animator, stateInfo, layerIndex);
-            
+        public override void Begin() {
             SceneManager.sceneLoaded += OnSceneLoaded;
             ServiceLocator.Resolve<LoadingStreamer>().StartLoading(LoadScene);
+        }
+
+        public override void Tick() {
+            
+        }
+
+        public override void End() {
+            
         }
 
         protected virtual void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
