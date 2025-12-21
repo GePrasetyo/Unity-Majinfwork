@@ -23,6 +23,8 @@ namespace Majinfwork {
             return gameInstance != null;
         }
 
+        public static T Instance<T> () where T : GameInstance => ServiceLocator.Resolve<GameInstance>() as T;
+
         public void Construct(WorldConfig _worldSetting) {
             worldSetting = _worldSetting;
 
@@ -32,11 +34,11 @@ namespace Majinfwork {
             Object.DontDestroyOnLoad(fsm.gameObject);
 
             Start();
-            ServiceLocator.Resolve<TickSignal>().RegisterObject(Tick);
+            TickSignal.AddSystem<UnityEngine.PlayerLoop.Update>(typeof(GameInstance), Tick);
         }
 
         public void Deconstruct() {
-            ServiceLocator.Resolve<TickSignal>().UnRegisterObject(Tick);
+            TickSignal.RemoveSystem<UnityEngine.PlayerLoop.Update>(typeof(GameInstance));
             Stop();
         }
 
@@ -61,7 +63,7 @@ namespace Majinfwork {
         }
 
         protected virtual void Start() {
-            ServiceLocator.Resolve<TickSignal>().RegisterObject(Tick);
+
         }
 
         protected virtual void Tick() {

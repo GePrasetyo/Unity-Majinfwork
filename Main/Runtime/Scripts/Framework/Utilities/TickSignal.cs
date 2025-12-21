@@ -1,56 +1,81 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.LowLevel;
+using UnityEngine.PlayerLoop;
 
 namespace Majinfwork {
-    public class TickSignal : MonoBehaviour {
-        private Action tickSubscriber;
-        private Action fixedTickSubscriber;
+    public static partial class TickSignal {
+        private static readonly List<ITickObject> tickCollection = new();
+        private static readonly List<IFixedTickObject> fixedTickCollection = new();
 
-        /// <summary>
-        /// Be careful with redundant subscriber, make sure it's not duplicated by removing the existing if any
-        /// </summary>
-        /// <param name="subscriber"></param>
-        public void RegisterObject(Action subscriber) {
-            tickSubscriber += subscriber;
+        public static void RegisterTick(this ITickObject objectTick) {
+            if (objectTick != null && !tickCollection.Contains(objectTick)) {
+                tickCollection.Add(objectTick);
+            }
         }
 
-        public void RegisterPhysicObject(Action subscriber) {
-            fixedTickSubscriber += subscriber;
+        public static void RegisterTick(this IFixedTickObject objectTick) {
+            if (objectTick != null && !fixedTickCollection.Contains(objectTick)) {
+                fixedTickCollection.Add(objectTick);
+            }
         }
 
-        /// <summary>
-        /// It is safe enough when you unregiester subscriber that is not exist in the subscriber list;
-        /// </summary>
-        /// <param name="subscriber"></param>
-        public void UnRegisterObject(Action subscriber) {
-            tickSubscriber -= subscriber;
+        public static void UnregisterTick(this ITickObject objectTick) => tickCollection.Remove(objectTick);
+
+        public static void UnregisterTick(this IFixedTickObject objectFixedTick) => fixedTickCollection.Remove(objectFixedTick);
+
+        [RuntimeInitializeOnLoadMethod]
+        private static void Init() {
+            AddSystem<Update>(typeof(MainTickSignalTag), Update);
+            AddSystem<Update>(typeof(FixedTickSignalTag), FixedUpdate);
+
+            var defaultSystems = PlayerLoop.GetDefaultPlayerLoop();
         }
 
-        /// <summary>
-        /// It is safe enough when you unregiester subscriber that is not exist in the subscriber list;
-        /// </summary>
-        /// <param name="subscriber"></param>
-        public void UnRegisterPhysicObject(Action subscriber) {
-            fixedTickSubscriber -= subscriber;
+        private static void Update() {
+            for (int i = tickCollection.Count - 1; i >= 0; i--) {
+                var current = tickCollection[i];
+                if (current == null) {
+                    tickCollection.RemoveAt(i);
+                    continue;
+                }
+
+                try {
+                    current.Tick();
+                }
+                catch (Exception ex) {
+                    Debug.LogException(ex);
+                }
+            }
         }
 
-        private void Update() {
-            tickSubscriber?.Invoke();
-        }
+        private static void FixedUpdate() {
+            for (int i = fixedTickCollection.Count - 1; i >= 0; i--) {
+                var current = fixedTickCollection[i];
+                if (current == null) {
+                    fixedTickCollection.RemoveAt(i);
+                    continue;
+                }
 
-        private void FixedUpdate() {
-            fixedTickSubscriber?.Invoke();
+                try {
+                    current.FixedTick();
+                }
+                catch (Exception ex) {
+                    Debug.LogException(ex);
+                }
+            }
         }
+    }
 
-        private void OnDestroy() {
-        }
+    public class MainTickSignalTag { }
+    public class FixedTickSignalTag { }
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void InitService() {
-            var obj = new GameObject().AddComponent<TickSignal>();
-            obj.name = "[Service] Tick Signal";
-            DontDestroyOnLoad(obj.gameObject);
-            ServiceLocator.Register<TickSignal>(obj);
-        }
+    public interface ITickObject {
+        public void Tick();
+    }
+
+    public interface IFixedTickObject {
+        public void FixedTick();
     }
 }

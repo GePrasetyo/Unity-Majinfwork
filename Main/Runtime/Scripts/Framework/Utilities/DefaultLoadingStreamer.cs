@@ -1,31 +1,33 @@
 using System;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.UI;
+using Majinfwork.TaskHelper;
+using System.Threading.Tasks;
 
 namespace Majinfwork.World {
     public class DefaultLoadingStreamer : LoadingStreamer {
-        [SerializeField, Min(0.1f)] private float _fadeSpeed = 1;
+        [SerializeField, Min(0.1f)] private float fadeSpeed = 1;
+        private Canvas canvas;
+        private CanvasGroup canvasGroup;
+        private ReentryCanceller reentry;
 
-        private bool _fading;
-        private bool _constructed;
-
-        private Canvas _canvas;
-        private CanvasGroup _canvasGroup;
+        private bool constructed;
 
         protected override void Construct() {
-            _canvas = new GameObject("ScreenOverlayCanvas").AddComponent<Canvas>();
-            _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            _canvas.sortingOrder = 10;
-            _canvas.enabled = false;
+            canvas = new GameObject("ScreenOverlayCanvas").AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 10;
+            canvas.enabled = false;
 
             // Add a CanvasScaler Component and set its properties
-            CanvasScaler scaler = _canvas.gameObject.AddComponent<CanvasScaler>();
+            CanvasScaler scaler = canvas.gameObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(Screen.width, Screen.height);
 
             // Create a new Image GameObject as a child of the Canvas
             GameObject image = new GameObject("OverlayImage");
-            image.transform.SetParent(_canvas.transform);
+            image.transform.SetParent(canvas.transform);
 
             // Add a RectTransform Component and set its properties
             RectTransform rect = image.AddComponent<RectTransform>();
@@ -38,80 +40,65 @@ namespace Majinfwork.World {
             Image img = image.AddComponent<Image>();
             img.color = Color.black;
 
-            _canvasGroup = _canvas.gameObject.AddComponent<CanvasGroup>();
-            _canvasGroup.alpha = 0;
-            _canvasGroup.enabled = false;
+            canvasGroup = canvas.gameObject.AddComponent<CanvasGroup>();
+            canvasGroup.alpha = 0;
+            canvasGroup.enabled = false;
 
-            UnityEngine.Object.DontDestroyOnLoad(_canvas.gameObject);
-            _constructed = true;
-            _fading = false;
+            UnityEngine.Object.DontDestroyOnLoad(canvas.gameObject);
+            constructed = true;
         }
 
-        public override void StartLoading(Action loadingRunning) {
-            if (!_constructed) {
-                return;
+        public override async void StartLoading(Action loadingRunning) {
+            if (!constructed) return;
+
+            var ct = await reentry.Enter(default);
+
+            try {
+                canvas.enabled = true;
+                canvasGroup.enabled = true;
+
+                await FadeAsync(1f, ct);
+                loadingRunning?.Invoke();
             }
-
-            if (_fading) {
-                return;
+            catch (OperationCanceledException) {
+                Debug.Log("Fade In Canceled");
             }
-
-            _canvasGroup.enabled = true;
-            _canvas.enabled = true;
-            _loadingStarted = () => loadingRunning.Invoke();
-
-            if (_canvasGroup.alpha > 0) {
-                _canvasGroup.alpha = 1;
-                _loadingStarted.Invoke();
-                return;
-            }
-
-            _fading = true;
-            ServiceLocator.Resolve<TickSignal>().RegisterObject(TickFadeIn);
-        }
-
-        private void TickFadeIn() {
-            _canvasGroup.alpha += Time.unscaledDeltaTime * _fadeSpeed;
-
-            if (_canvasGroup.alpha >= 1) {
-                _fading = false;
-
-                _loadingStarted?.Invoke();
-                _loadingStarted = null;
-                ServiceLocator.Resolve<TickSignal>().UnRegisterObject(TickFadeIn);
+            finally {
+                reentry.Exit();
             }
         }
 
-        private void TickFadeOut() {
-            _canvasGroup.alpha -= Time.unscaledDeltaTime * _fadeSpeed;
+        public override async void StopLoading() {
+            if (!constructed) return;
 
-            if (_canvasGroup.alpha <= 0) {
-                _fading = false;
-                _canvasGroup.enabled = false;
-                _canvas.enabled = false;
+            var ct = await reentry.Enter(default);
 
-                ServiceLocator.Resolve<TickSignal>().UnRegisterObject(TickFadeOut);
+            try {
+                await FadeAsync(0f, ct);
+                canvasGroup.enabled = false;
+                canvas.enabled = false;
+            }
+            catch (OperationCanceledException) {
+                Debug.Log("Fade Out Canceled");
+            }
+            finally {
+                reentry.Exit();
             }
         }
 
-        public override void StopLoading() {
-            if (!_constructed) {
-                return;
+        private async Task FadeAsync(float targetAlpha, CancellationToken ct) {
+            while (!Mathf.Approximately(canvasGroup.alpha, targetAlpha)) {
+                await Task.Yield();
+                ct.ThrowIfCancellationRequested();
+
+                canvasGroup.alpha = Mathf.MoveTowards(
+                    canvasGroup.alpha,
+                    targetAlpha,
+                    Time.unscaledDeltaTime * fadeSpeed
+                );
             }
 
-            if (_fading) {
-                return;
-            }
-
-            if (_canvasGroup.alpha < 1) {
-                _canvasGroup.alpha = 0;
-                _canvasGroup.enabled = false;
-                _canvas.enabled = false;
-                return;
-            }
-
-            _fading = true;
-            ServiceLocator.Resolve<TickSignal>().RegisterObject(TickFadeOut);
+            canvasGroup.alpha = targetAlpha;
         }
     }
 }
