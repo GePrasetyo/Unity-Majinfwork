@@ -1,6 +1,8 @@
 using UnityEngine;
 using System;
 using System.Reflection;
+using Majinfwork.StateGraph;
+
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -110,7 +112,7 @@ namespace Majinfwork.World {
             Selection.activeObject = asset;
         }
 
-        private static void SetDefaultLevelState (GameWorldSettings asset) {
+        private static void SetDefaultLevelState (GameWorldSettings worldSettings) {
             FieldInfo field = typeof(GameInstance).GetField("gameStateMachine", BindingFlags.Instance | BindingFlags.NonPublic);
 
             if (field == null) {
@@ -118,19 +120,23 @@ namespace Majinfwork.World {
                 return;
             }
 
-            var controller = Resources.Load<RuntimeAnimatorController>("LevelStateMachine");
+            GameStateMachineGraph asset = Resources.Load<GameStateMachineGraph>("GameStateMachine");
 
-            if (controller == null) {
+            if (asset == null) {
                 string resourcesPath = "Assets/Resources";
-
                 if (!AssetDatabase.IsValidFolder(resourcesPath)) {
                     AssetDatabase.CreateFolder("Assets", "Resources");
                 }
 
-                controller = UnityEditor.Animations.AnimatorController.CreateAnimatorControllerAtPath($"{resourcesPath}/LevelStateMachine.controller");
-            }
+                asset = ScriptableObject.CreateInstance<GameStateMachineGraph>();
+                string fullPath = $"{resourcesPath}/GameStateMachine.asset";
+                AssetDatabase.CreateAsset(asset, fullPath);
 
-            field.SetValue(asset.classGameInstance, controller);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+            }
+            
+            field.SetValue(worldSettings.classGameInstance, asset);
         }
 #endif
     }

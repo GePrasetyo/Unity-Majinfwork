@@ -6,11 +6,11 @@ using Majinfwork.TaskHelper;
 using System.Threading.Tasks;
 
 namespace Majinfwork.World {
-    public class DefaultLoadingStreamer : LoadingStreamer {
+    public class LoadingStreamerDefault : LoadingStreamer {
         [SerializeField, Min(0.1f)] private float fadeSpeed = 1;
         private Canvas canvas;
         private CanvasGroup canvasGroup;
-        private ReentryCanceller reentry;
+        private ReentryCanceller reentry = new();
 
         private bool constructed;
 

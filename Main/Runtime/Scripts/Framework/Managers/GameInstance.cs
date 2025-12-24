@@ -1,3 +1,4 @@
+using Majinfwork.StateGraph;
 using Majinfwork.World;
 using System;
 using UnityEngine;
@@ -9,7 +10,7 @@ namespace Majinfwork {
     public class GameInstance {
         protected WorldConfig worldSetting;
         [SerializeField] protected bool stopLoadingOnSceneLoaded;
-        [SerializeField] protected RuntimeAnimatorController gameStateMachine;
+        [SerializeField] protected GameStateMachineGraph gameStateMachine;
 
         public GameInstance() {
             Debug.Log($"Game Instance generated : {GetType()}");
@@ -28,9 +29,10 @@ namespace Majinfwork {
         public void Construct(WorldConfig _worldSetting) {
             worldSetting = _worldSetting;
 
-            var fsm = new GameObject().AddComponent<Animator>();
+            var fsm = new GameObject().AddComponent<StateRunner>();
             fsm.name = "[Service] State Machine";
-            fsm.runtimeAnimatorController = gameStateMachine;
+            fsm.SetGraph(gameStateMachine);
+            fsm.SetRuntimeGraph(gameStateMachine);
             Object.DontDestroyOnLoad(fsm.gameObject);
 
             Start();

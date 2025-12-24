@@ -3,14 +3,14 @@ using UnityEngine.InputSystem;
 
 namespace Majinfwork.World {
     public class PlayerInput : Actor {
-        [SerializeField] private InputActionMap inputMap;
+        [SerializeField] private InputActionAsset inputAsset;
 
         private void OnEnable() {
-            inputMap.Enable();
+            inputAsset.Enable();
         }
 
         private void OnDisable() {
-            inputMap.Disable();
+            inputAsset.Disable();
         }
     }
 }

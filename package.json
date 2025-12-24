@@ -1,22 +1,23 @@
 {
   "name": "com.majingari.framework",
   "displayName": "Majingari Framework",
-  "version": "0.0.2-preview",
+  "version": "0.0.3-preview",
   "description": "Majingari Framework.",
-  "unity": "2022.3",
-  "unityRelease": "10f1",
-  "documentationUrl": "https://github.com/GePrasetyo/UnrealFramework-forUnity/wiki/Documentation",
-  "changelogUrl": "https://github.com/GePrasetyo/UnrealFramework-forUnity/wiki/Changelog",
-  "licensesUrl": "https://github.com/GePrasetyo/UnrealFramework-forUnity/wiki/License",
+  "unity": "6000.3",
+  "unityRelease": "1f1",
+  "documentationUrl": "https://github.com/GePrasetyo/Unity-Majinfwork/wiki/Documentation",
+  "changelogUrl": "https://github.com/GePrasetyo/Unity-Majinfwork/wiki/Changelog",
+  "licensesUrl": "https://github.com/GePrasetyo/Unity-Majinfwork/blob/main/LICENSE",
   "dependencies": {
     "com.unity.addressables": "1.21.17",
     "com.unity.netcode.gameobjects": "1.6.0",
     "com.unity.localization": "1.5.9",
-    "com.unity.inputsystem": "1.17.0"
+    "com.unity.inputsystem": "1.17.0",
+    "com.majingari.stategraph": "0.0.1"
   },
   "author": {
     "name": "Dhimas Prasetyo",
-    "url": "https://github.com/GePrasetyo/UnrealFramework-forUnity",
+    "url": "https://github.com/GePrasetyo/Unity-Majinfwork",
     "email": "dhimasgppantoja@gmail.com"
   }
 }

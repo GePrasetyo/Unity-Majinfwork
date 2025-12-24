@@ -1,7 +1,7 @@
 using UnityEngine;
 
 namespace Majinfwork {
-    public class DefaultCameraHandler : CameraHandler {
+    public class CameraHandlerDefault : CameraHandler {
         private Camera _controlledCamera;
 
         public override void Construct() {

@@ -92,7 +92,7 @@ namespace Majinfwork.Pool {
             return false;
         }
 
-        public static void Release<T>(this object item, object key, bool keepOn = false) where T : Component {
+        public static void ReleasePoolRef<T>(this object item, object key, bool keepOn = false) where T : Component {
             T itemToRelease = item as T;
 
             if (key == null || itemToRelease == null) {

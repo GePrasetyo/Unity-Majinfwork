@@ -1,10 +1,12 @@
+using Majinfwork.StateGraph;
 using Majinfwork.World;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Majinfwork.FSM {
-    public class LevelStateMachine : GameStateMachine {
+namespace Majinfwork {
+    public class LoadLevel : StateNodeAsset {
         [SerializeField] private SceneReference map;
+        public StateTransition onComplete;
 
         public override void Begin() {
             SceneManager.sceneLoaded += OnSceneLoaded;
@@ -21,6 +23,7 @@ namespace Majinfwork.FSM {
 
         protected virtual void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
             SceneManager.sceneLoaded -= OnSceneLoaded;
+            TriggerExit(onComplete);
         }
 
         private void LoadScene() {

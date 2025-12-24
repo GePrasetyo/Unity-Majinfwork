@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Majinfwork.World {
     [Serializable]
-    [CreateAssetMenu(fileName = "Default Game Mode Config", menuName = "Config Object/Game Mode Config")]
+    [CreateAssetMenu(fileName = "Default Game Mode Config", menuName = "MFramework/Config Object/Game Mode Config")]
     public class GameModeManager : ScriptableObject {
         [SerializeField] private GameState _gameState;
         [SerializeField] private HUDManager _hudManager;
@@ -52,13 +52,14 @@ namespace Majinfwork.World {
             public override PlayerInput GetInput() => input;
 
 
-            public PlayerConstructorDependency(S _state, P _pawn) {
+            public PlayerConstructorDependency(S _state, P _pawn, I _input) {
                 state = Instantiate(_state);
 
                 var playerStart = FindFirstObjectByType<PlayerStart>();
                 Vector3 spawnPost = playerStart == null ? Vector3.zero : playerStart.transform.position;
                 Quaternion quaternion = playerStart == null ? Quaternion.identity : playerStart.transform.rotation;
                 pawn = Instantiate(_pawn, spawnPost, quaternion);
+                input = Instantiate(_input);
             }
         }
 
@@ -69,8 +70,8 @@ namespace Majinfwork.World {
                 Type inputType = inputInstance.GetType();
 
                 var constructor = typeof(PlayerConstructorDependency<,,>)
-                    .MakeGenericType(stateType, pawnType)
-                    .GetConstructor(new[] { stateType, pawnType });
+                    .MakeGenericType(stateType, pawnType, inputType)
+                    .GetConstructor(new[] { stateType, pawnType, inputType });
 
                 return (PlayerDependency)constructor.Invoke(new object[] { stateInstance, pawnInstance, inputInstance });
             }

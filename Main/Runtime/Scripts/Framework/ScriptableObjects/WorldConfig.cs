@@ -10,7 +10,7 @@ using UnityEditor;
 #endif
 
 namespace Majinfwork.World {
-    [CreateAssetMenu(fileName = "Default World Config", menuName = "Config Object/World Config")]
+    [CreateAssetMenu(fileName = "Default World Config", menuName = "MFramework/Config Object/World Config")]
     public class WorldConfig : ScriptableObject {
         [SerializeField] private WorldAssetConfig[] mapList = new WorldAssetConfig[0];
         [SerializeField] private AddressableSceneHandler[] levelStreamCollection = Array.Empty<AddressableSceneHandler>();
