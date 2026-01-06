@@ -1,13 +1,23 @@
+using System;
 using UnityEngine;
 
 namespace Majinfwork {
+    [Serializable]
     public class CameraHandlerDefault : CameraHandler {
-        private Camera _controlledCamera;
+        [SerializeField] private Camera cameraPrefab;
+        private Camera controlledCamera;
 
         public override void Construct() {
-            Camera.main.gameObject.SetActive(false);
+            if(Camera.main != null) {
+                Camera.main.gameObject.SetActive(false);
+            }
 
-            _controlledCamera = new GameObject("Player Camera").AddComponent<Camera>();
+            if(cameraPrefab == null) {
+                controlledCamera = new GameObject("Player Camera").AddComponent<Camera>();
+            }
+            else {
+                controlledCamera = UnityEngine.Object.Instantiate(cameraPrefab);
+            }
         }
 
         public override void Deconstruct() {

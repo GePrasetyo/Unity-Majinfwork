@@ -5,12 +5,12 @@ namespace Majinfwork.World {
     [Serializable]
     [CreateAssetMenu(fileName = "Default Game Mode Config", menuName = "MFramework/Config Object/Game Mode Config")]
     public class GameModeManager : ScriptableObject {
-        [SerializeField] private GameState _gameState;
-        [SerializeField] private HUDManager _hudManager;
-        [SerializeField] private PlayerController _playerController;
-        [SerializeField] private PlayerState _playerState;
-        [SerializeField] private PlayerPawn _playerPawn;
-        [SerializeField] private PlayerInput _playerInput;
+        [SerializeField] private GameState gameState;
+        [SerializeField] private HUDManager hudManager;
+        [SerializeField] private PlayerController playerController;
+        [SerializeField] private PlayerState playerState;
+        [SerializeField] private PlayerPawn playerPawn;
+        [SerializeField] private PlayerInput playerInput;
         [SerializeReference, ClassReference] private CameraHandler cameraHandler;
 
         internal static PlayerDependency playerReference;
@@ -26,14 +26,13 @@ namespace Majinfwork.World {
         }
 
         internal void InitiateGameManager() {
-            Instantiate(_gameState);
-            Instantiate(_hudManager);
+            Instantiate(gameState);
+            Instantiate(hudManager);
         }
 
         internal void InstantiatePlayer() {
             cameraHandler.Construct();
-            playerReference = PlayerDependencyFactory.Create(_playerState, _playerPawn, _playerInput);
-            Instantiate(_playerController);
+            playerReference = PlayerDependencyFactory.Create(playerState, playerPawn, playerInput);
         }
 
         internal abstract class PlayerDependency {

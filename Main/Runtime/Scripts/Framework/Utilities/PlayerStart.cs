@@ -21,6 +21,15 @@ namespace Majinfwork {
             const string nameLabel = "Player Start";
             Handles.Label(transform.position, nameLabel);
         }
+
+        [MenuItem("GameObject/Majinfwork/Player Start", false, 10)]
+        private static void CreatePlayerStart(MenuCommand menuCommand) {
+            GameObject go = new GameObject("PlayerStart");
+            go.AddComponent<PlayerStart>();
+            GameObjectUtility.SetParentAndAlign(go, menuCommand.context as GameObject);
+            Undo.RegisterCreatedObjectUndo(go, "Create " + go.name);
+            Selection.activeObject = go;
+        }
 #endif
     }
 }
