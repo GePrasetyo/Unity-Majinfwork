@@ -44,9 +44,17 @@ public class CrossSceneDrawer : PropertyDrawer {
 
         if (EditorGUI.EndChangeCheck()) {
             property.objectReferenceValue = current;
+
             if (current is Component target) {
-                var anchor = target.GetComponent<CrossSceneAnchor>() ?? Undo.AddComponent<CrossSceneAnchor>(target.gameObject);
-                db.Register(host, property.name, anchor.Guid);
+                bool isCrossScene = IsCrossSceneReference(host, target);
+
+                if (isCrossScene) {
+                    var anchor = target.GetComponent<CrossSceneAnchor>() ?? Undo.AddComponent<CrossSceneAnchor>(target.gameObject);
+                    db.Register(host, property.name, anchor.Guid);
+                } else {
+                    // Same scene - clear any existing DB entry, keep direct reference
+                    db.Register(host, property.name, null);
+                }
                 EditorUtility.SetDirty(db);
                 AssetDatabase.SaveAssets();
             }
@@ -55,6 +63,15 @@ public class CrossSceneDrawer : PropertyDrawer {
                 EditorUtility.SetDirty(db);
             }
         }
+    }
+
+    private bool IsCrossSceneReference(Object host, Component target) {
+        // ScriptableObjects/Prefabs always need cross-scene system (they can't serialize scene refs)
+        if (!(host is MonoBehaviour hostMb))
+            return true;
+
+        // Same scene check for MonoBehaviours
+        return hostMb.gameObject.scene != target.gameObject.scene;
     }
 
     public override float GetPropertyHeight(SerializedProperty property, GUIContent label) {
