@@ -1,37 +1,41 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
 namespace Majinfwork.Network {
-    [DisallowMultipleComponent]
     public abstract class NetworkDiscovery<TBroadCast, TResponse>
         where TBroadCast : INetworkSerializable, new()
         where TResponse : INetworkSerializable, new() {
+
         private enum MessageType : byte {
             BroadCast = 0,
             Response = 1,
         }
 
         private UdpClient udpClient;
+        private CancellationTokenSource discoveryTokenSource;
 
-        [SerializeField] protected ushort port = 47777;
+        protected ushort port = 47777;
         protected const long LANBroadcastID = 5687486546;
 
-        public bool isRunning { get; private set; }
-        public bool isServer { get; private set; }
-        public bool isClient { get; private set; }
-
-        public void OnApplicationQuit() {
-            StopDiscovery();
-        }
+        public bool IsRunning { get; private set; }
+        public bool IsServer { get; private set; }
+        public bool IsClient { get; private set; }
 
         public void ClientBroadcast(TBroadCast broadCast) {
-            if (!isClient) {
-                throw new InvalidOperationException("Cannot send client broadcast while not running in client mode. Call StartClient first.");
+            if (!IsClient) {
+                Debug.LogWarning("[NetworkDiscovery] Cannot send broadcast while not in client mode.");
+                return;
+            }
+
+            if (udpClient == null) {
+                Debug.LogWarning("[NetworkDiscovery] UDP client is null.");
+                return;
             }
 
             IPEndPoint endPoint = new IPEndPoint(IPAddress.Broadcast, port);
@@ -42,10 +46,13 @@ namespace Majinfwork.Network {
                 var data = writer.ToArray();
 
                 try {
-                    // This works because PooledBitStream.Get resets the position to 0 so the array segment will always start from 0.
                     udpClient.SendAsync(data, data.Length, endPoint);
-                } catch (Exception e) {
-                    Debug.LogError(e);
+                }
+                catch (ObjectDisposedException) {
+                    // Socket was closed, ignore
+                }
+                catch (Exception e) {
+                    Debug.LogError($"[NetworkDiscovery] Failed to send broadcast: {e.Message}");
                 }
             }
         }
@@ -59,115 +66,192 @@ namespace Majinfwork.Network {
         }
 
         public void StopDiscovery() {
-            isClient = false;
-            isServer = false;
-            isRunning = false;
+            // Cancel any running async operations
+            discoveryTokenSource?.Cancel();
+            discoveryTokenSource?.Dispose();
+            discoveryTokenSource = null;
+
+            IsClient = false;
+            IsServer = false;
+            IsRunning = false;
 
             if (udpClient != null) {
                 try {
                     udpClient.Close();
-                } catch (Exception) {
-                    // We don't care about socket exception here. Socket will always be closed after this.
                 }
-
+                catch (Exception) {
+                    // Socket exception during close is expected
+                }
                 udpClient = null;
             }
         }
 
         /// <summary>
-        /// Gets called whenever a broadcast is received. Creates a response based on the incoming broadcast data.
+        /// Gets called whenever a broadcast is received (on main thread).
+        /// Creates a response based on the incoming broadcast data.
         /// </summary>
-        /// <param name="sender">The sender of the broadcast</param>
-        /// <param name="broadCast">The broadcast data which was sent</param>
-        /// <param name="response">The response to send back</param>
-        /// <returns>True if a response should be sent back else false</returns>
         protected abstract bool ProcessBroadcast(IPEndPoint sender, TBroadCast broadCast, out TResponse response);
 
         /// <summary>
-        /// Gets called when a response to a broadcast gets received
+        /// Gets called when a response to a broadcast gets received (on main thread).
         /// </summary>
-        /// <param name="sender">The sender of the response</param>
-        /// <param name="response">The value of the response</param>
         protected abstract void ResponseReceived(IPEndPoint sender, TResponse response);
 
-        void StartDiscovery(bool _isServer) {
+        private void StartDiscovery(bool asServer) {
             StopDiscovery();
 
-            isServer = _isServer;
-            isClient = !_isServer;
+            IsServer = asServer;
+            IsClient = !asServer;
 
-            // If we are not a server we use the 0 port (let udp client assign a free port to us)
-            var _port = isServer ? port : 0;
-            udpClient = new UdpClient(_port) { EnableBroadcast = true, MulticastLoopback = false };
+            // Create cancellation token for this discovery session
+            discoveryTokenSource = new CancellationTokenSource();
 
-            //Look "Standalone Discard" for trivia
-            _ = ListenAsync(isServer ? ReceiveBroadcastAsync : new Func<Task>(ReceiveResponseAsync));
+            // If we are not a server we use port 0 (let UDP client assign a free port)
+            var bindPort = asServer ? port : 0;
 
-            isRunning = true;
+            try {
+                udpClient = new UdpClient(bindPort) {
+                    EnableBroadcast = true,
+                    MulticastLoopback = false
+                };
+            }
+            catch (SocketException ex) {
+                Debug.LogError($"[NetworkDiscovery] Failed to create UDP client on port {bindPort}: {ex.Message}");
+                return;
+            }
+
+            // Start listening in background
+            var token = discoveryTokenSource.Token;
+            _ = ListenAsync(
+                asServer ? () => ReceiveBroadcastAsync(token) : () => ReceiveResponseAsync(token),
+                token
+            );
+
+            IsRunning = true;
+            Debug.Log($"[NetworkDiscovery] Started as {(asServer ? "server" : "client")} on port {(asServer ? port : "dynamic")}");
         }
 
-        async Task ListenAsync(Func<Task> onReceiveTask) {
-            while (true) {
+        private async Task ListenAsync(Func<Task> onReceiveTask, CancellationToken token) {
+            while (!token.IsCancellationRequested) {
                 try {
                     await onReceiveTask();
-                } catch (ObjectDisposedException) {
-                    // socket has been closed
+                }
+                catch (OperationCanceledException) {
+                    // Expected when cancellation is requested
                     break;
-                } catch (Exception) {
+                }
+                catch (ObjectDisposedException) {
+                    // Socket has been closed
+                    break;
+                }
+                catch (SocketException ex) {
+                    Debug.LogWarning($"[NetworkDiscovery] Socket error: {ex.Message}");
+                    // Continue listening unless cancelled
+                }
+                catch (Exception ex) {
+                    Debug.LogError($"[NetworkDiscovery] Unexpected error in receive loop: {ex}");
                 }
             }
         }
 
-        async Task ReceiveResponseAsync() {
-            UdpReceiveResult udpReceiveResult = await udpClient.ReceiveAsync();
+        private async Task ReceiveResponseAsync(CancellationToken token) {
+            if (udpClient == null) return;
 
+            // Use Task.WhenAny to support cancellation with ReceiveAsync
+            var receiveTask = udpClient.ReceiveAsync();
+            var delayTask = Task.Delay(Timeout.Infinite, token);
+
+            var completedTask = await Task.WhenAny(receiveTask, delayTask);
+
+            if (completedTask == delayTask || token.IsCancellationRequested) {
+                token.ThrowIfCancellationRequested();
+                return;
+            }
+
+            var udpReceiveResult = await receiveTask;
             var segment = new ArraySegment<byte>(udpReceiveResult.Buffer, 0, udpReceiveResult.Buffer.Length);
-            using var reader = new FastBufferReader(segment, Allocator.Persistent);
+
+            // Use Allocator.Temp instead of Persistent
+            using var reader = new FastBufferReader(segment, Allocator.Temp);
 
             try {
-                if (ReadAndCheckHeader(reader, MessageType.Response) == false) {
+                if (!ReadAndCheckHeader(reader, MessageType.Response)) {
                     return;
                 }
 
                 reader.ReadNetworkSerializable(out TResponse receivedResponse);
-                ResponseReceived(udpReceiveResult.RemoteEndPoint, receivedResponse);
-            } catch (Exception e) {
-                Debug.LogException(e);
+
+                // Queue callback to main thread
+                var endpoint = udpReceiveResult.RemoteEndPoint;
+                MainThreadDispatcher.Enqueue(() => ResponseReceived(endpoint, receivedResponse));
+            }
+            catch (Exception ex) {
+                Debug.LogError($"[NetworkDiscovery] Error processing response: {ex.Message}");
             }
         }
 
-        async Task ReceiveBroadcastAsync() {
-            UdpReceiveResult udpReceiveResult = await udpClient.ReceiveAsync();
+        private async Task ReceiveBroadcastAsync(CancellationToken token) {
+            if (udpClient == null) return;
 
+            // Use Task.WhenAny to support cancellation with ReceiveAsync
+            var receiveTask = udpClient.ReceiveAsync();
+            var delayTask = Task.Delay(Timeout.Infinite, token);
+
+            var completedTask = await Task.WhenAny(receiveTask, delayTask);
+
+            if (completedTask == delayTask || token.IsCancellationRequested) {
+                token.ThrowIfCancellationRequested();
+                return;
+            }
+
+            var udpReceiveResult = await receiveTask;
             var segment = new ArraySegment<byte>(udpReceiveResult.Buffer, 0, udpReceiveResult.Buffer.Length);
-            using var reader = new FastBufferReader(segment, Allocator.Persistent);
+
+            // Use Allocator.Temp instead of Persistent
+            using var reader = new FastBufferReader(segment, Allocator.Temp);
 
             try {
-                if (ReadAndCheckHeader(reader, MessageType.BroadCast) == false) {
+                if (!ReadAndCheckHeader(reader, MessageType.BroadCast)) {
                     return;
                 }
 
                 reader.ReadNetworkSerializable(out TBroadCast receivedBroadcast);
 
-                if (ProcessBroadcast(udpReceiveResult.RemoteEndPoint, receivedBroadcast, out TResponse response)) {
-                    using var writer = new FastBufferWriter(1024, Allocator.Persistent, 1024 * 64);
-                    WriteHeader(writer, MessageType.Response);
+                // Process on main thread and send response
+                var endpoint = udpReceiveResult.RemoteEndPoint;
+                MainThreadDispatcher.Enqueue(() => {
+                    if (ProcessBroadcast(endpoint, receivedBroadcast, out TResponse response)) {
+                        SendResponseAsync(endpoint, response);
+                    }
+                });
+            }
+            catch (Exception ex) {
+                Debug.LogError($"[NetworkDiscovery] Error processing broadcast: {ex.Message}");
+            }
+        }
 
-                    writer.WriteNetworkSerializable(response);
-                    var data = writer.ToArray();
+        private async void SendResponseAsync(IPEndPoint endpoint, TResponse response) {
+            if (udpClient == null) return;
 
-                    await udpClient.SendAsync(data, data.Length, udpReceiveResult.RemoteEndPoint);
-                }
-            } catch (Exception e) {
-                Debug.LogException(e);
+            // Use Allocator.Temp instead of Persistent
+            using var writer = new FastBufferWriter(1024, Allocator.Temp, 1024 * 64);
+            WriteHeader(writer, MessageType.Response);
+            writer.WriteNetworkSerializable(response);
+            var data = writer.ToArray();
+
+            try {
+                await udpClient.SendAsync(data, data.Length, endpoint);
+            }
+            catch (ObjectDisposedException) {
+                // Socket was closed, ignore
+            }
+            catch (Exception ex) {
+                Debug.LogError($"[NetworkDiscovery] Failed to send response: {ex.Message}");
             }
         }
 
         private void WriteHeader(FastBufferWriter writer, MessageType messageType) {
-            // Serialize unique application id to make sure packet received is from same application.
             writer.WriteValueSafe(LANBroadcastID);
-
-            // Write a flag indicating whether this is a broadcast
             writer.WriteByteSafe((byte)messageType);
         }
 
@@ -184,6 +268,5 @@ namespace Majinfwork.Network {
 
             return true;
         }
-
     }
 }
