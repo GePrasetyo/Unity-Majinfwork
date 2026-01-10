@@ -63,5 +63,14 @@ namespace Majinfwork.World {
 
         /// <summary>Get the state cast to a specific type.</summary>
         protected T GetState<T>() where T : PlayerState => State as T;
+
+        /// <summary>Get the current pawn cast to a specific type (public access).</summary>
+        public T GetCurrentPawn<T>() where T : PlayerPawn => CurrentPawn as T;
+
+        /// <summary>Get the input cast to a specific type (public access).</summary>
+        public T GetCurrentInput<T>() where T : PlayerInput => Input as T;
+
+        /// <summary>Get the state cast to a specific type (public access).</summary>
+        public T GetCurrentState<T>() where T : PlayerState => State as T;
     }
 }

@@ -22,53 +22,41 @@ namespace Majinfwork.World {
         }
 
         // ─────────────────────────────────────────────────────────────────
-        // Player Pawn
+        // Main Player Pawn (convenience for main/first player)
         // ─────────────────────────────────────────────────────────────────
 
-        public static PlayerPawn GetPlayerPawn(int index = 0) {
-            return PlayerManager.GetPlayer(index)?.CurrentPawn;
+        public static T GetMainPlayerPawn<T>() where T : PlayerPawn {
+            return GetPlayerController(0)?.GetCurrentPawn<T>();
         }
 
-        public static T GetPlayerPawn<T>(int index = 0) where T : PlayerPawn {
-            return GetPlayerPawn(index) as T;
-        }
-
-        public static bool TryGetPlayerPawn<T>(out T pawn, int index = 0) where T : PlayerPawn {
-            pawn = GetPlayerPawn<T>(index);
+        public static bool TryGetMainPlayerPawn<T>(out T pawn) where T : PlayerPawn {
+            pawn = GetMainPlayerPawn<T>();
             return pawn != null;
         }
 
         // ─────────────────────────────────────────────────────────────────
-        // Player Input
+        // Main Player Input (convenience for main/first player)
         // ─────────────────────────────────────────────────────────────────
 
-        public static PlayerInput GetPlayerInput(int index = 0) {
-            return PlayerManager.GetPlayer(index)?.Input;
+        public static T GetMainPlayerInput<T>() where T : PlayerInput {
+            return GetPlayerController(0)?.GetCurrentInput<T>();
         }
 
-        public static T GetPlayerInput<T>(int index = 0) where T : PlayerInput {
-            return GetPlayerInput(index) as T;
-        }
-
-        public static bool TryGetPlayerInput<T>(out T input, int index = 0) where T : PlayerInput {
-            input = GetPlayerInput<T>(index);
+        public static bool TryGetMainPlayerInput<T>(out T input) where T : PlayerInput {
+            input = GetMainPlayerInput<T>();
             return input != null;
         }
 
         // ─────────────────────────────────────────────────────────────────
-        // Player State
+        // Main Player State (convenience for main/first player)
         // ─────────────────────────────────────────────────────────────────
 
-        public static PlayerState GetPlayerState(int index = 0) {
-            return PlayerManager.GetPlayer(index)?.State;
+        public static T GetMainPlayerState<T>() where T : PlayerState {
+            return GetPlayerController(0)?.GetCurrentState<T>();
         }
 
-        public static T GetPlayerState<T>(int index = 0) where T : PlayerState {
-            return GetPlayerState(index) as T;
-        }
-
-        public static bool TryGetPlayerState<T>(out T state, int index = 0) where T : PlayerState {
-            state = GetPlayerState<T>(index);
+        public static bool TryGetMainPlayerState<T>(out T state) where T : PlayerState {
+            state = GetMainPlayerState<T>();
             return state != null;
         }
 
@@ -80,7 +68,7 @@ namespace Majinfwork.World {
             return PlayerManager.PlayerCount;
         }
 
-        public static PlayerController GetFirstPlayerController() {
+        public static PlayerController GetMainPlayerController() {
             return GetPlayerController(0);
         }
     }
