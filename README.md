@@ -1,6 +1,20 @@
 # 🎮 Majingari Framework
 
-The **Majingari Framework** is a modular Unity framework designed to streamline game initialization, player management, and cross-scene referencing.
+The Majingari Framework is a modular foundation designed to streamline game initialization, player management, and cross-scene referencing. It is built using patterns familiar to Unreal Engine developers, providing a structured approach to Unity development
+
+## 🏛️ Architecture Overview (UE Comparison)
+
+The framework adopts Unreal's decoupled architecture, separating data, rules, and physical representations.
+
+| Feature | Unreal Engine Equivalent | Majingari Framework |
+| :--- | :--- | :--- |
+| **Global Manager** | `GameInstance` | `GameInstance` |
+| **Scene Rules** | `GameMode` | `GameModeManager` |
+| **Input & Logic** | `PlayerController` | `PlayerController` |
+| **Physical Body** | `Pawn` | `Pawn` / `PlayerPawn` |
+| **Player Data** | `PlayerState` | `PlayerState` |
+| **Global Data** | `GameState` | `GameState` |
+
 
 ## 🚀 Getting Started
 
