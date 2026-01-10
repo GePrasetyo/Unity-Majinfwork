@@ -1,5 +1,5 @@
+#if HAS_STATEGRAPH
 using Majinfwork.StateGraph;
-using UnityEditor;
 using UnityEngine;
 
 namespace Majinfwork {
@@ -8,3 +8,4 @@ namespace Majinfwork {
 
     }
 }
+#endif

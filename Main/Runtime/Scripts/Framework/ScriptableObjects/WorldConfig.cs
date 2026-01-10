@@ -12,13 +12,20 @@ using UnityEditor;
 namespace Majinfwork.World {
     [CreateAssetMenu(fileName = "Default World Config", menuName = "MFramework/Config Object/World Config")]
     public class WorldConfig : ScriptableObject {
+        [Header("Scene Configuration")]
         [SerializeField] private WorldAssetConfig[] mapList = new WorldAssetConfig[0];
         [SerializeField] private AddressableSceneHandler[] levelStreamCollection = Array.Empty<AddressableSceneHandler>();
+
+        [Header("Default Fallback")]
+        [Tooltip("GameMode used when a scene has no specific GameMode configured")]
+        [SerializeField] private GameModeManager defaultGameMode;
 
         public Dictionary<string, WorldAssetConfig> MapConfigList = new Dictionary<string, WorldAssetConfig>();
         public Dictionary<string, AddressableSceneHandler> levelStreamDictionary = new Dictionary<string, AddressableSceneHandler>();
 
         [SerializeReference, ClassReference] private LoadingStreamer loadingHandler;
+
+        public GameModeManager DefaultGameMode => defaultGameMode;
 
         public void SetupSceneConfiguration() {
             loadingHandler.Initialize();

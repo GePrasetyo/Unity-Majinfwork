@@ -1,3 +1,4 @@
+#if HAS_STATEGRAPH
 using Majinfwork.StateGraph;
 using Majinfwork.World;
 using UnityEngine;
@@ -9,7 +10,6 @@ namespace Majinfwork {
         public StateTransition onComplete;
 
         public override void Begin() {
-            SceneManager.sceneLoaded += OnSceneLoaded;
             ServiceLocator.Resolve<LoadingStreamer>().StartLoading(LoadScene);
         }
 
@@ -27,7 +27,9 @@ namespace Majinfwork {
         }
 
         private void LoadScene() {
+            SceneManager.sceneLoaded += OnSceneLoaded;
             SceneManager.LoadScene(map.mapName, LoadSceneMode.Single);
         }
     }
 }
+#endif

@@ -1,4 +1,7 @@
+#if HAS_STATEGRAPH
 using Majinfwork.StateGraph;
+#endif
+using Majinfwork.CrossRef;
 using Majinfwork.World;
 using System;
 using UnityEngine;
@@ -10,12 +13,20 @@ namespace Majinfwork {
     public class GameInstance {
         protected WorldConfig worldSetting;
         [SerializeField] protected bool stopLoadingOnSceneLoaded;
+#if HAS_STATEGRAPH
         [SerializeField] protected GameStateMachineGraph gameStateMachine;
+#endif
 
         /// <summary>
-        /// The currently active GameMode for the loaded scene.
+        /// The currently active GameMode for the loaded scene (cloned instance).
         /// </summary>
         protected GameModeManager CurrentGameMode { get; private set; }
+
+        /// <summary>
+        /// The template GameModeManager that CurrentGameMode was cloned from.
+        /// Used for resolving cross-scene references.
+        /// </summary>
+        private GameModeManager currentGameModeTemplate;
 
         public GameInstance() {
             Debug.Log($"Game Instance generated : {GetType()}");
@@ -34,11 +45,13 @@ namespace Majinfwork {
         public void Construct(WorldConfig _worldSetting) {
             worldSetting = _worldSetting;
 
+#if HAS_STATEGRAPH
             var fsm = new GameObject().AddComponent<StateRunner>();
             fsm.name = "[Service] State Machine";
             fsm.SetGraph(gameStateMachine);
             fsm.SetRuntimeGraph(gameStateMachine);
             Object.DontDestroyOnLoad(fsm.gameObject);
+#endif
 
             Start();
             TickSignal.AddSystem<UnityEngine.PlayerLoop.Update>(typeof(GameInstance), Tick);
@@ -50,23 +63,38 @@ namespace Majinfwork {
         }
 
         private void OnSceneUnloaded(Scene scene) {
-            if (worldSetting?.MapConfigList.ContainsKey(scene.name) == true) {
-                worldSetting.MapConfigList[scene.name].TheGameMode.OnDeactive();
-                CurrentGameMode = null;
-            }
+            // Handled in OnSceneLoaded - we only deactivate when replacing
         }
 
         protected void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
-            if(mode != LoadSceneMode.Single) {
+            if (mode != LoadSceneMode.Single) {
                 return;
             }
 
+            // Get the GameMode template for this scene (or use default)
+            GameModeManager template = null;
             if (worldSetting?.MapConfigList.ContainsKey(scene.name) == true) {
-                CurrentGameMode = worldSetting.MapConfigList[scene.name].TheGameMode;
+                template = worldSetting.MapConfigList[scene.name].TheGameMode;
+            }
+            template ??= worldSetting?.DefaultGameMode;
+
+            if (template != null) {
+                // Deactivate and destroy current cloned GameMode
+                if (CurrentGameMode != null) {
+                    CurrentGameMode.OnDeactive();
+                    Object.Destroy(CurrentGameMode);
+                    CurrentGameMode = null;
+                    currentGameModeTemplate = null;
+                }
+
+                // Clone fresh instance from template
+                CurrentGameMode = Object.Instantiate(template);
+                currentGameModeTemplate = template;
+                CurrentGameMode.ResolveCrossSceneReferences(template);
                 CurrentGameMode.OnActive();
             }
 
-            if(stopLoadingOnSceneLoaded) {
+            if (stopLoadingOnSceneLoaded) {
                 ServiceLocator.Resolve<LoadingStreamer>().StopLoading();
             }
         }

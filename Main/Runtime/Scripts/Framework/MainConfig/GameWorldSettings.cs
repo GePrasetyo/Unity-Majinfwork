@@ -1,8 +1,6 @@
 using UnityEngine;
 using System;
 using System.Reflection;
-using Majinfwork.StateGraph;
-
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -109,10 +107,13 @@ namespace Majinfwork.World {
             asset.classGameInstance = new PersistentGameInstance();
             AssetDatabase.SaveAssets();
 
+#if HAS_STATEGRAPH
             SetDefaultLevelState(asset);
+#endif
             Selection.activeObject = asset;
         }
 
+#if HAS_STATEGRAPH
         private static void SetDefaultLevelState (GameWorldSettings worldSettings) {
             FieldInfo field = typeof(GameInstance).GetField("gameStateMachine", BindingFlags.Instance | BindingFlags.NonPublic);
 
@@ -139,6 +140,7 @@ namespace Majinfwork.World {
             
             field.SetValue(worldSettings.classGameInstance, asset);
         }
+#endif
 #endif
     }
 }

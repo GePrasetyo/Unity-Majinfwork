@@ -15,6 +15,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.majingari.stategraph",
+            "expression": "",
+            "define": "HAS_STATEGRAPH"
+        }
+    ],
     "noEngineReferences": false
 }
