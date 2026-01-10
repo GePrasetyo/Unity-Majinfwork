@@ -72,6 +72,7 @@ Unity does not natively allow referencing objects between different scenes in th
 
 The documentation for the **Majingari Framework** has been updated to reflect the latest network features. This update focuses on the robust integration with **Unity Netcode for GameObjects**, featuring a customisable connection lifecycle, LAN discovery, and a detailed approval system.
 
+
 ###  🌐 Networking System
 
 The network system is built on **Unity Netcode** and managed via the `UNetcodeConnectionHandler`. It handles everything from initial handshake to session discovery.
@@ -110,7 +111,7 @@ public class MyGameHandler : UNetcodeConnectionHandler {
 }
 ```
 
-###  🛠️ Connection Status Codes
+####  🛠️ Connection Status Codes
 The framework provides detailed feedback for connection failures via the `ConnectionStatus` enum:
 
 | Status | Meaning |
@@ -121,10 +122,69 @@ The framework provides detailed feedback for connection failures via the `Connec
 | `IncorrectPassword` | The session requires a password that was not provided correctly. |
 
 
+### 💾 Save System
+
+The **Majingari Save System** provides a high-performance, asynchronous, and modular way to handle persistent game data. It is inspired by Unreal Engine’s `SaveGame` architecture but enhanced with a multi-slot management system and flexible serialization.
+
+#### **1. Core Concepts**
+The system is built on four primary pillars:
+*   **SaveData:** The base class for any data you want to persist. It includes built-in versioning and a "dirty" flag system to optimize save operations.
+*   **SaveDataService:** The central engine that handles asynchronous file I/O and manages the lifecycle of your saves.
+*   **SaveSlot:** Metadata containers that track information like `totalPlayTime`, `lastSaveTime`, and custom display names for each save file.
+*   **ISaveListener:** An interface for systems (like an Inventory or Quest manager) to subscribe to bulk save operations, ensuring all data is synchronized at once.
+
+#### **2. Supported Serializers**
+You can choose the serialization format that best fits your project's needs:
+| Format | Class | Description |
+| :--- | :--- | :--- |
+| **Binary** | `BinarySaveSerializer` | Compact, fast, and secure; ideal for production. |
+| **JSON** | `JsonSaveSerializer` | Human-readable; perfect for debugging and modding. |
+| **Compressed** | `CompressedJsonSaveSerializer` | JSON convenience with GZip compression for smaller file sizes. |
+
+#### **3. Usage Guide**
+
+##### **Defining Save Data**
+Create a class that inherits from `SaveData` and define your serializable fields.
+```csharp
+[Serializable]
+public class PlayerProfileData : SaveData {
+    public override string FileName => "PlayerProfile";
+    public string playerName;
+    public int currentLevel;
+}
+```
+
+##### **Initializing the Service**
+Initialize the service via your `GameInstance` or a bootstrap script.
+```csharp
+// Setup with 3 save slots and JSON serialization
+var service = new SaveDataService(slotCount: 3, serializer: new JsonSaveSerializer());
+await service.InitializeAsync();
+
+// Select the first slot
+service.SetCurrentSlot(0); 
+```
+
+##### **Saving and Loading**
+All operations are asynchronous to prevent frame stutters during disk I/O.
+```csharp
+// Saving
+var myData = new PlayerProfileData { playerName = "Hero", currentLevel = 10 };
+await service.SaveAsync(myData);
+
+// Loading
+var loadedData = await service.LoadAsync<PlayerProfileData>("PlayerProfile");
+```
+
+> [!TIP]
+> Use `service.UpdateAllAsync()` to trigger a save on all registered `ISaveListener` objects. This is perfect for "Checkpoints" or auto-save triggers.
+
+
 ### **🌍 Localization**
 Easily localize your UI using the integrated localization components:
 *   `LocalizerBasicText`: Localizes **TextMeshPro** text and fonts.
 *   `LocalizationDropdown`: A pre-built dropdown for switching between available languages at runtime.
+
 
 ### 📦 Utilities
 
