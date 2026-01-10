@@ -72,32 +72,30 @@ Unity does not natively allow referencing objects between different scenes in th
 
 The documentation for the **Majingari Framework** has been updated to reflect the latest network features. This update focuses on the robust integration with **Unity Netcode for GameObjects**, featuring a customisable connection lifecycle, LAN discovery, and a detailed approval system.
 
----
-
-## 🌐 Networking System
+###  🌐 Networking System
 
 The network system is built on **Unity Netcode** and managed via the `UNetcodeConnectionHandler`. It handles everything from initial handshake to session discovery.
 
-### **1. Network Configuration**
+#### **1. Network Configuration**
 Global network parameters are defined in the **NetworkConfig** ScriptableObject:
 *   **Protocol Version:** Ensures only compatible clients can connect.
 *   **LAN Discovery:** Configurable UDP ports (default: 47777), broadcast intervals, and scan timeouts.
 *   **Connection Constraints:** Set maximum payload sizes and connection timeouts.
 
-### **2. Connection & Approval Lifecycle**
+#### **2. Connection & Approval Lifecycle**
 The framework uses a surgical **Approval Check** system to validate incoming connections before they are allowed into the world.
 
 *   **ConnectionPayload:** Clients send a payload containing their GUID, player name, and protocol version.
 *   **Validation:** The `ConnectionApprovalValidator` checks for server capacity, password matches, and protocol compatibility.
 *   **Custom Data:** You can extend `ConnectionPayload` with your own JSON data (e.g., selected character skins or team IDs).
 
-### **3. LAN Discovery Service**
+#### **3. LAN Discovery Service**
 The `LANDiscoveryService` allows players to find local games without manual IP entry.
 *   **Automatic Scanning:** Searches for active `DiscoveryResponseData` on the local network.
 *   **Session Metadata:** Servers can broadcast custom session info like current map name or game mode.
 *   **Compatibility Check:** Automatically filters out sessions with mismatched protocol versions.
 
-### **4. Custom Connection Handling**
+#### **4. Custom Connection Handling**
 To implement your own logic, extend the `UNetcodeConnectionHandler`:
 ```csharp
 public class MyGameHandler : UNetcodeConnectionHandler {
@@ -112,9 +110,7 @@ public class MyGameHandler : UNetcodeConnectionHandler {
 }
 ```
 
----
-
-## 🛠️ Connection Status Codes
+###  🛠️ Connection Status Codes
 The framework provides detailed feedback for connection failures via the `ConnectionStatus` enum:
 
 | Status | Meaning |
@@ -124,16 +120,13 @@ The framework provides detailed feedback for connection failures via the `Connec
 | `ProtocolMismatch` | Client and Server version numbers do not match. |
 | `IncorrectPassword` | The session requires a password that was not provided correctly. |
 
----
 
-## **🌍 Localization**
+### **🌍 Localization**
 Easily localize your UI using the integrated localization components:
 *   `LocalizerBasicText`: Localizes **TextMeshPro** text and fonts.
 *   `LocalizationDropdown`: A pre-built dropdown for switching between available languages at runtime.
 
----
-
-## 📦 Utilities
+### 📦 Utilities
 
 | Feature | Description |
 | :--- | :--- |
