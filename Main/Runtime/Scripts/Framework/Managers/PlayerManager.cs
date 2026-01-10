@@ -5,35 +5,35 @@ namespace Majinfwork.World {
     /// Tracks all active PlayerControllers by index.
     /// </summary>
     internal static class PlayerManager {
-        private static readonly List<PlayerController> _players = new();
+        private static readonly List<PlayerController> players = new();
 
-        public static int PlayerCount => _players.Count;
-        public static IReadOnlyList<PlayerController> AllPlayers => _players;
+        public static int PlayerCount => players.Count;
+        public static IReadOnlyList<PlayerController> AllPlayers => players;
 
         public static void RegisterPlayer(PlayerController controller) {
-            if (controller == null || _players.Contains(controller)) return;
+            if (controller == null || players.Contains(controller)) return;
 
-            controller.PlayerIndex = _players.Count;
-            _players.Add(controller);
+            controller.PlayerIndex = players.Count;
+            players.Add(controller);
         }
 
         public static void UnregisterPlayer(PlayerController controller) {
             if (controller == null) return;
 
-            int index = _players.IndexOf(controller);
+            int index = players.IndexOf(controller);
             if (index < 0) return;
 
-            _players.RemoveAt(index);
+            players.RemoveAt(index);
 
             // Re-index remaining players
-            for (int i = index; i < _players.Count; i++) {
-                _players[i].PlayerIndex = i;
+            for (int i = index; i < players.Count; i++) {
+                players[i].PlayerIndex = i;
             }
         }
 
         public static PlayerController GetPlayer(int index = 0) {
-            if (index < 0 || index >= _players.Count) return null;
-            return _players[index];
+            if (index < 0 || index >= players.Count) return null;
+            return players[index];
         }
 
         public static T GetPlayer<T>(int index = 0) where T : PlayerController {
@@ -41,7 +41,7 @@ namespace Majinfwork.World {
         }
 
         public static void Clear() {
-            _players.Clear();
+            players.Clear();
         }
     }
 }

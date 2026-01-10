@@ -59,6 +59,12 @@ namespace Majinfwork.World {
             var pawn = Instantiate(playerPawnPrefab, spawnPos, spawnRot);
             var controller = Instantiate(playerControllerPrefab);
 
+            // Make persistent so framework controls lifecycle, not Unity's scene unload
+            DontDestroyOnLoad(controller.gameObject);
+            DontDestroyOnLoad(input.gameObject);
+            DontDestroyOnLoad(state.gameObject);
+            DontDestroyOnLoad(pawn.gameObject);
+
             // Initialize controller with components
             controller.Initialize(input, state, pawn);
 
