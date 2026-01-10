@@ -1,0 +1,28 @@
+{
+    "name": "Majinfwork.Tests",
+    "rootNamespace": "Majinfwork.Tests",
+    "references": [
+        "GUID:5ae0b8f61355378439f76ca163caef2a",
+        "GUID:27619889b8ba8c24980f49ee34dbb44a",
+        "GUID:0acc523941302664db1f4e527237feb3"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.majingari.stategraph",
+            "expression": "",
+            "define": "HAS_STATEGRAPH"
+        }
+    ],
+    "noEngineReferences": false
+}
