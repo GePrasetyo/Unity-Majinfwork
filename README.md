@@ -2,6 +2,8 @@
 
 The Majingari Framework is a modular foundation designed to streamline game initialization, player management, and cross-scene referencing. It is built using patterns familiar to Unreal Engine developers, providing a structured approach to Unity development
 
+---
+
 ## 🏛️ Architecture Overview (UE Comparison)
 
 The framework adopts Unreal's decoupled architecture, separating data, rules, and physical representations.
@@ -15,6 +17,7 @@ The framework adopts Unreal's decoupled architecture, separating data, rules, an
 | **Player Data** | `PlayerState` | `PlayerState` |
 | **Global Data** | `GameState` | `GameState` |
 
+---
 
 ## 🚀 Getting Started
 
@@ -67,19 +70,63 @@ Unity does not natively allow referencing objects between different scenes in th
 *   **Usage:** Mark your field in a script with the `[CrossSceneReference]` attribute.
 *   **Resolution:** The **CrossSceneManager** automatically resolves these links via GUID when the scene loads.
 
-### **🌐 Networking (LAN Support)**
-The framework includes built-in support for **Netcode for GameObjects** with LAN discovery.
-*   **ConnectionLANSupport:** Allows clients to broadcast and find local game sessions without entering IP addresses manually.
-*   **UNetcodeConnectionHandler:** Manages server/host start-up, client approval checks, and connection payloads.
+The documentation for the **Majingari Framework** has been updated to reflect the latest network features. This update focuses on the robust integration with **Unity Netcode for GameObjects**, featuring a customisable connection lifecycle, LAN discovery, and a detailed approval system.
+
+###  🌐 Networking System
+
+The network system is built on **Unity Netcode** and managed via the `UNetcodeConnectionHandler`. It handles everything from initial handshake to session discovery.
+
+#### **1. Network Configuration**
+Global network parameters are defined in the **NetworkConfig** ScriptableObject:
+*   **Protocol Version:** Ensures only compatible clients can connect.
+*   **LAN Discovery:** Configurable UDP ports (default: 47777), broadcast intervals, and scan timeouts.
+*   **Connection Constraints:** Set maximum payload sizes and connection timeouts.
+
+#### **2. Connection & Approval Lifecycle**
+The framework uses a surgical **Approval Check** system to validate incoming connections before they are allowed into the world.
+
+*   **ConnectionPayload:** Clients send a payload containing their GUID, player name, and protocol version.
+*   **Validation:** The `ConnectionApprovalValidator` checks for server capacity, password matches, and protocol compatibility.
+*   **Custom Data:** You can extend `ConnectionPayload` with your own JSON data (e.g., selected character skins or team IDs).
+
+#### **3. LAN Discovery Service**
+The `LANDiscoveryService` allows players to find local games without manual IP entry.
+*   **Automatic Scanning:** Searches for active `DiscoveryResponseData` on the local network.
+*   **Session Metadata:** Servers can broadcast custom session info like current map name or game mode.
+*   **Compatibility Check:** Automatically filters out sessions with mismatched protocol versions.
+
+#### **4. Custom Connection Handling**
+To implement your own logic, extend the `UNetcodeConnectionHandler`:
+```csharp
+public class MyGameHandler : UNetcodeConnectionHandler {
+    protected override void OnLocalClientConnected() {
+        // Handle logic when you successfully join a server
+    }
+
+    protected override void ConfigurePlayerSpawn(ConnectionApprovalRequest request, ConnectionApprovalResponse response, ConnectionPayload payload) {
+        // Custom spawn positioning based on payload data
+        response.Position = new Vector3(10, 0, 10); 
+    }
+}
+```
+
+###  🛠️ Connection Status Codes
+The framework provides detailed feedback for connection failures via the `ConnectionStatus` enum:
+
+| Status | Meaning |
+| :--- | :--- |
+| `Success` | Connection established. |
+| `ServerFull` | The session has reached `maxPlayers`. |
+| `ProtocolMismatch` | Client and Server version numbers do not match. |
+| `IncorrectPassword` | The session requires a password that was not provided correctly. |
+
 
 ### **🌍 Localization**
 Easily localize your UI using the integrated localization components:
 *   `LocalizerBasicText`: Localizes **TextMeshPro** text and fonts.
 *   `LocalizationDropdown`: A pre-built dropdown for switching between available languages at runtime.
 
----
-
-## 📦 Utilities
+### 📦 Utilities
 
 | Feature | Description |
 | :--- | :--- |
