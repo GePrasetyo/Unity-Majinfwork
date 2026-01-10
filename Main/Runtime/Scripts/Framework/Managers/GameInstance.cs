@@ -12,6 +12,11 @@ namespace Majinfwork {
         [SerializeField] protected bool stopLoadingOnSceneLoaded;
         [SerializeField] protected GameStateMachineGraph gameStateMachine;
 
+        /// <summary>
+        /// The currently active GameMode for the loaded scene.
+        /// </summary>
+        protected GameModeManager CurrentGameMode { get; private set; }
+
         public GameInstance() {
             Debug.Log($"Game Instance generated : {GetType()}");
 
@@ -47,6 +52,7 @@ namespace Majinfwork {
         private void OnSceneUnloaded(Scene scene) {
             if (worldSetting?.MapConfigList.ContainsKey(scene.name) == true) {
                 worldSetting.MapConfigList[scene.name].TheGameMode.OnDeactive();
+                CurrentGameMode = null;
             }
         }
 
@@ -56,7 +62,8 @@ namespace Majinfwork {
             }
 
             if (worldSetting?.MapConfigList.ContainsKey(scene.name) == true) {
-                worldSetting.MapConfigList[scene.name].TheGameMode.OnActive();
+                CurrentGameMode = worldSetting.MapConfigList[scene.name].TheGameMode;
+                CurrentGameMode.OnActive();
             }
 
             if(stopLoadingOnSceneLoaded) {

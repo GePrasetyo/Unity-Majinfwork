@@ -1,28 +1,40 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Majinfwork.World {
     [Serializable]
     [CreateAssetMenu(fileName = "Default Game Mode Config", menuName = "MFramework/Config Object/Game Mode Config")]
     public class GameModeManager : ScriptableObject {
+        [Header("Game Managers")]
         [SerializeField] private GameState gameState;
         [SerializeField] private HUDManager hudManager;
-        [SerializeField] private PlayerController playerController;
-        [SerializeField] private PlayerState playerState;
-        [SerializeField] private PlayerPawn playerPawn;
-        [SerializeField] private PlayerInput playerInput;
+
+        [Header("Player Setup")]
+        [Tooltip("Automatically spawn player 0 on scene load")]
+        [SerializeField] private PlayerController playerControllerPrefab;
+        [SerializeField] private PlayerState playerStatePrefab;
+        [SerializeField] private PlayerPawn playerPawnPrefab;
+        [SerializeField] private PlayerInput playerInputPrefab;
+
+        [Header("Camera")]
         [SerializeReference, ClassReference] private CameraHandler cameraHandler;
 
-        internal static PlayerDependency playerReference;
+        private readonly List<PlayerController> spawnedControllers = new();
 
         internal void OnActive() {
             InitiateGameManager();
-            InstantiatePlayer();
+            cameraHandler.Construct();
+            SpawnPlayer();
         }
 
         internal void OnDeactive() {
             cameraHandler.Deconstruct();
-            playerReference = null;
+
+            // Iterate backwards since DespawnPlayer removes from list
+            for (int i = spawnedControllers.Count - 1; i >= 0; i--) {
+                DespawnPlayer(spawnedControllers[i]);
+            }
         }
 
         internal void InitiateGameManager() {
@@ -30,50 +42,47 @@ namespace Majinfwork.World {
             Instantiate(hudManager);
         }
 
-        internal void InstantiatePlayer() {
-            cameraHandler.Construct();
-            playerReference = PlayerDependencyFactory.Create(playerState, playerPawn, playerInput);
+        /// <summary>
+        /// Spawns a new player on demand. Call this when a player joins (controller connects, press start, etc.)
+        /// </summary>
+        protected PlayerController SpawnPlayer(int? playerIndex = null) {
+            int index = playerIndex ?? PlayerManager.PlayerCount;
+
+            // Find spawn location for this player
+            var playerStart = PlayerStart.FindForPlayer(index);
+            Vector3 spawnPos = playerStart != null ? playerStart.transform.position : Vector3.zero;
+            Quaternion spawnRot = playerStart != null ? playerStart.transform.rotation : Quaternion.identity;
+
+            // Instantiate all player components
+            var input = Instantiate(playerInputPrefab);
+            var state = Instantiate(playerStatePrefab);
+            var pawn = Instantiate(playerPawnPrefab, spawnPos, spawnRot);
+            var controller = Instantiate(playerControllerPrefab);
+
+            // Initialize controller with components
+            controller.Initialize(input, state, pawn);
+
+            // Register with PlayerManager
+            PlayerManager.RegisterPlayer(controller);
+
+            spawnedControllers.Add(controller);
+            return controller;
         }
 
-        internal abstract class PlayerDependency {
-            public abstract PlayerState GetState();
-            public abstract PlayerPawn GetPawn();
-            public abstract PlayerInput GetInput();
-        }
+        /// <summary>
+        /// Removes a player. Call this when a player leaves.
+        /// </summary>
+        protected void DespawnPlayer(PlayerController controller) {
+            if (controller == null) return;
 
-        internal class PlayerConstructorDependency<S, P, I> : PlayerDependency where S : PlayerState where P : PlayerPawn where I : PlayerInput {
-            public S state;
-            public P pawn;
-            public I input;
+            PlayerManager.UnregisterPlayer(controller);
+            spawnedControllers.Remove(controller);
 
-            public override PlayerState GetState() => state;
-            public override PlayerPawn GetPawn() => pawn;
-            public override PlayerInput GetInput() => input;
-
-
-            public PlayerConstructorDependency(S _state, P _pawn, I _input) {
-                state = Instantiate(_state);
-
-                var playerStart = FindFirstObjectByType<PlayerStart>();
-                Vector3 spawnPost = playerStart == null ? Vector3.zero : playerStart.transform.position;
-                Quaternion quaternion = playerStart == null ? Quaternion.identity : playerStart.transform.rotation;
-                pawn = Instantiate(_pawn, spawnPost, quaternion);
-                input = Instantiate(_input);
-            }
-        }
-
-        internal static class PlayerDependencyFactory {
-            public static PlayerDependency Create(PlayerState stateInstance, PlayerPawn pawnInstance, PlayerInput inputInstance) {
-                Type stateType = stateInstance.GetType();
-                Type pawnType = pawnInstance.GetType(); 
-                Type inputType = inputInstance.GetType();
-
-                var constructor = typeof(PlayerConstructorDependency<,,>)
-                    .MakeGenericType(stateType, pawnType, inputType)
-                    .GetConstructor(new[] { stateType, pawnType, inputType });
-
-                return (PlayerDependency)constructor.Invoke(new object[] { stateInstance, pawnInstance, inputInstance });
-            }
+            // Destroy player objects
+            if (controller.Input != null) Destroy(controller.Input.gameObject);
+            if (controller.State != null) Destroy(controller.State.gameObject);
+            if (controller.CurrentPawn != null) Destroy(controller.CurrentPawn.gameObject);
+            Destroy(controller.gameObject);
         }
     }
 }

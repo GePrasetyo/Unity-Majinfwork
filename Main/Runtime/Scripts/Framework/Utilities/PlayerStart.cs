@@ -3,22 +3,36 @@ using UnityEditor;
 #endif
 using UnityEngine;
 
-
 namespace Majinfwork {
     public sealed class PlayerStart : MonoBehaviour {
+        [Tooltip("Player index this spawn point is for (0 = Player 1, 1 = Player 2, etc.)")]
+        [SerializeField] private int playerIndex;
+
+        public int PlayerIndex => playerIndex;
+
+        public static PlayerStart FindForPlayer(int index) {
+            var allStarts = FindObjectsByType<PlayerStart>(FindObjectsSortMode.None);
+
+            // First try to find exact match
+            foreach (var start in allStarts) {
+                if (start.playerIndex == index) return start;
+            }
+
+            // Fallback to first available if no match
+            return allStarts.Length > 0 ? allStarts[0] : null;
+        }
+
 #if UNITY_EDITOR
         private void OnDrawGizmos() {
-            //Draw facing
             Gizmos.color = Color.green;
-            Gizmos.DrawRay(transform.position, transform.forward*2);
+            Gizmos.DrawRay(transform.position, transform.forward * 2);
 
-            //Draw Box
             Gizmos.color = Color.yellow;
             Matrix4x4 rotationMatrix = Matrix4x4.TRS(transform.position, transform.rotation, transform.lossyScale);
             Gizmos.matrix = rotationMatrix;
             Gizmos.DrawWireSphere(Vector3.zero, 1f);
 
-            const string nameLabel = "Player Start";
+            string nameLabel = $"Player Start [{playerIndex}]";
             Handles.Label(transform.position, nameLabel);
         }
 

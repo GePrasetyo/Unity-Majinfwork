@@ -59,6 +59,7 @@ namespace Majinfwork.World {
 
         private void OnGameQuit() {
             ServiceLocator.Unregister<GameInstance>(out string message);
+            PlayerManager.Clear();
             classGameInstance.Deconstruct();
         }
 
