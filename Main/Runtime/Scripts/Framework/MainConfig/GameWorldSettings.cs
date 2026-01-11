@@ -10,10 +10,7 @@ namespace Majinfwork.World {
     internal sealed class GameWorldSettings : ScriptableObject {
         [SerializeReference, ClassReference] public GameInstance classGameInstance;
         [SerializeField] private WorldConfig worldConfigObject;
-        [SerializeField] private GameScriptableObject[] preInitializeSciptableObjects = Array.Empty<GameScriptableObject>(); 
-
-        [Header("Player Setting")]
-        [SerializeField] private bool editMode;
+        [SerializeField] private GameScriptableObject[] preInitializeSciptableObjects = Array.Empty<GameScriptableObject>();
 
         [RuntimeInitializeOnLoadMethod]
         private static void WorldBuilderStart() {
@@ -24,9 +21,11 @@ namespace Majinfwork.World {
                 return;
             }
 
-            if (instance.editMode) {
+#if UNITY_EDITOR
+            if (!SessionState.GetBool(GameWorldSession.PlayWithFrameworkKey, false)) {
                 return;
             }
+#endif
 
             if (instance.worldConfigObject == null) {
                 Debug.LogError("You don't have World Config, please attach World Config first");
@@ -37,7 +36,7 @@ namespace Majinfwork.World {
 
             ServiceLocator.Register<GameInstance>(instance.classGameInstance);
             instance.classGameInstance.Construct(instance.worldConfigObject);
-            
+
             Application.quitting += instance.OnGameQuit;
         }
 
@@ -137,10 +136,17 @@ namespace Majinfwork.World {
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
             }
-            
+
             field.SetValue(worldSettings.classGameInstance, asset);
         }
 #endif
 #endif
     }
+
+
+#if UNITY_EDITOR
+    public static class GameWorldSession {
+        public const string PlayWithFrameworkKey = "Majinfwork_PlayWithFramework";
+    }
+#endif
 }
