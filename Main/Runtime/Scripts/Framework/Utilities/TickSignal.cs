@@ -31,6 +31,9 @@ namespace Majinfwork {
             AddSystem<Update>(typeof(FixedTickSignalTag), FixedUpdate);
 
             var defaultSystems = PlayerLoop.GetDefaultPlayerLoop();
+
+            Application.quitting -= OnQuit;
+            Application.quitting += OnQuit;
         }
 
         private static void Update() {
@@ -65,6 +68,17 @@ namespace Majinfwork {
                     Debug.LogException(ex);
                 }
             }
+        }
+
+        private static void OnQuit() {
+            // Restore the Unity PlayerLoop to its original state
+            PlayerLoop.SetPlayerLoop(PlayerLoop.GetDefaultPlayerLoop());
+
+            // Clear lists to free references
+            tickCollection.Clear();
+            fixedTickCollection.Clear();
+
+            Debug.Log("TickSignal: PlayerLoop restored and collections cleared.");
         }
     }
 
