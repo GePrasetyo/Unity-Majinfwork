@@ -1,6 +1,6 @@
 # 🎮 Majingari Framework
 
-The Majingari Framework is a modular foundation designed to streamline game initialization, player management, and cross-scene referencing. It is built using patterns familiar to Unreal Engine developers, providing a structured approach to Unity development
+The Majingari Framework is a modular foundation designed to streamline game initialization, player management. It is built using patterns familiar to Unreal Engine developers, providing a structured approach to Unity development
 
 ---
 
