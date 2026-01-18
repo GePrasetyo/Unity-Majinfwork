@@ -54,8 +54,6 @@ namespace Majinfwork.Pool {
 
             while (pool.Count > 0) {
                 T item = pool.Pop();
-                // If it's a GameObject/Component, this calls Object.Destroy
-                // If it's a Native class, this could call its own Dispose
                 onDestroy?.Invoke(item);
             }
 
