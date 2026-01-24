@@ -44,6 +44,8 @@ namespace Majinfwork {
 
         public void Construct(WorldConfig _worldSetting) {
             worldSetting = _worldSetting;
+            Start();
+            TickSignal.AddSystem<UnityEngine.PlayerLoop.Update>(typeof(GameInstance), Tick);
 
 #if HAS_STATEGRAPH
             var fsm = new GameObject().AddComponent<StateRunner>();
@@ -52,9 +54,6 @@ namespace Majinfwork {
             fsm.SetRuntimeGraph(gameStateMachine);
             Object.DontDestroyOnLoad(fsm.gameObject);
 #endif
-
-            Start();
-            TickSignal.AddSystem<UnityEngine.PlayerLoop.Update>(typeof(GameInstance), Tick);
         }
 
         public void Deconstruct() {

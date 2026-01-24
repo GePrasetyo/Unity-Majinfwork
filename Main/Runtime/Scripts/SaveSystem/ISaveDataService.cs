@@ -87,5 +87,26 @@ namespace Majinfwork.SaveSystem {
         /// Removes a save listener.
         /// </summary>
         void RemoveListener(ISaveListener listener);
+
+        /// <summary>
+        /// Whether preloading of SaveData marked with PreloadOnInit is complete.
+        /// </summary>
+        bool IsPreloadComplete { get; }
+
+        /// <summary>
+        /// Asynchronously loads all SaveData types marked with PreloadOnInit.
+        /// </summary>
+        Task PreloadAllAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Waits for preload to complete. Returns immediately if already complete.
+        /// </summary>
+        Task WaitForPreloadAsync();
+
+        /// <summary>
+        /// Gets a preloaded SaveData instance by type.
+        /// Returns null if not preloaded or type not found.
+        /// </summary>
+        T GetPreloaded<T>() where T : SaveData;
     }
 }

@@ -30,9 +30,15 @@ namespace Majinfwork.SaveSystem {
         // Cached reflection results
         private Type[] cachedSaveDataTypes;
 
+        // Preloaded save data instances
+        protected readonly Dictionary<Type, SaveData> preloadedData = new Dictionary<Type, SaveData>();
+        protected bool isPreloadComplete;
+        protected TaskCompletionSource<bool> preloadCompletionSource = new TaskCompletionSource<bool>();
+
         public SaveSlot CurrentSlot => currentSlot;
         public SaveContainer Container => container;
         public bool IsInitialized => isInitialized;
+        public bool IsPreloadComplete => isPreloadComplete;
 
         protected string ContainerPath => cachedContainerPath ??= Path.Combine(baseDirectory, SaveContainer.ContainerFileName + serializer.FileExtension);
 
@@ -436,22 +442,42 @@ namespace Majinfwork.SaveSystem {
         #region Reflection Helpers
 
         /// <summary>
-        /// Gets all SaveData types in the current assembly.
+        /// Gets all SaveData types across all loaded assemblies.
         /// Results are cached after first call.
         /// Override to customize which types are included.
         /// </summary>
         protected virtual Type[] GetAllSaveDataTypes() {
             if (cachedSaveDataTypes != null) return cachedSaveDataTypes;
 
-            // Avoid LINQ - use manual filtering
-            var allTypes = Assembly.GetExecutingAssembly().GetTypes();
             var result = new List<Type>();
-            for (int i = 0; i < allTypes.Length; i++) {
-                var type = allTypes[i];
-                if (!type.IsAbstract && type.IsSubclassOf(typeof(SaveData))) {
-                    result.Add(type);
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+
+            for (int i = 0; i < assemblies.Length; i++) {
+                var assembly = assemblies[i];
+
+                // Skip system and Unity assemblies for performance
+                var assemblyName = assembly.GetName().Name;
+                if (assemblyName.StartsWith("System") ||
+                    assemblyName.StartsWith("Unity") ||
+                    assemblyName.StartsWith("mscorlib") ||
+                    assemblyName.StartsWith("netstandard")) {
+                    continue;
+                }
+
+                try {
+                    var types = assembly.GetTypes();
+                    for (int j = 0; j < types.Length; j++) {
+                        var type = types[j];
+                        if (!type.IsAbstract && type.IsSubclassOf(typeof(SaveData))) {
+                            result.Add(type);
+                        }
+                    }
+                }
+                catch (ReflectionTypeLoadException) {
+                    // Skip assemblies that can't be loaded
                 }
             }
+
             cachedSaveDataTypes = result.ToArray();
             return cachedSaveDataTypes;
         }
@@ -461,6 +487,83 @@ namespace Majinfwork.SaveSystem {
         /// </summary>
         public void ClearTypeCache() {
             cachedSaveDataTypes = null;
+        }
+
+        #endregion
+
+        #region Preloading
+
+        public virtual async Task PreloadAllAsync(CancellationToken cancellationToken = default) {
+            if (currentSlot == null) {
+                Debug.LogError("[SaveDataService] No slot selected. Call SetCurrentSlot first.");
+                preloadCompletionSource.TrySetResult(false);
+                return;
+            }
+
+            var preloadTypes = GetPreloadSaveDataTypes();
+            foreach (var type in preloadTypes) {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var instance = Activator.CreateInstance(type) as SaveData;
+                if (instance == null) continue;
+
+                var filePath = GetFilePath(instance.FileName);
+                if (File.Exists(filePath)) {
+                    try {
+                        var loaded = await Task.Run(() => {
+                            using (var stream = File.OpenRead(filePath)) {
+                                return serializer.Deserialize<SaveData>(stream);
+                            }
+                        }, cancellationToken).ConfigureAwait(false);
+
+                        if (loaded != null) {
+                            loaded.OnLoaded();
+                            preloadedData[type] = loaded;
+                            Debug.Log($"[SaveDataService] Preloaded {type.Name}");
+                        }
+                    }
+                    catch (Exception e) {
+                        Debug.LogError($"[SaveDataService] Failed to preload {type.Name}: {e.Message}");
+                    }
+                }
+                else {
+                    // Create default instance if file doesn't exist
+                    await instance.CreateAsync(this, cancellationToken).ConfigureAwait(false);
+                    preloadedData[type] = instance;
+                    Debug.Log($"[SaveDataService] Created default preload for {type.Name}");
+                }
+            }
+
+            isPreloadComplete = true;
+            preloadCompletionSource.TrySetResult(true);
+            Debug.Log("[SaveDataService] Preload complete.");
+        }
+
+        public Task WaitForPreloadAsync() {
+            return preloadCompletionSource.Task;
+        }
+
+        public virtual T GetPreloaded<T>() where T : SaveData {
+            if (preloadedData.TryGetValue(typeof(T), out var data)) {
+                return data as T;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Gets all SaveData types that have PreloadOnInit = true.
+        /// </summary>
+        protected virtual Type[] GetPreloadSaveDataTypes() {
+            var allTypes = GetAllSaveDataTypes();
+            var result = new List<Type>();
+            for (int i = 0; i < allTypes.Length; i++) {
+                var type = allTypes[i];
+                var instance = Activator.CreateInstance(type) as SaveData;
+                if (instance?.PreloadOnInit == true) {
+                    result.Add(type);
+                }
+            }
+            return result.ToArray();
         }
 
         #endregion

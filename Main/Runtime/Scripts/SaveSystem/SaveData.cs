@@ -15,6 +15,12 @@ namespace Majinfwork.SaveSystem {
         public abstract string FileName { get; }
 
         /// <summary>
+        /// When true, this save data will be preloaded asynchronously at game start.
+        /// Consumers should await WaitForPreloadAsync() before accessing preloaded data.
+        /// </summary>
+        public virtual bool PreloadOnInit => false;
+
+        /// <summary>
         /// Version of this save data format for migration support.
         /// </summary>
         public string version = "1";
