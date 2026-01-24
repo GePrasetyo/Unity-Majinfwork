@@ -1,5 +1,11 @@
 # 🎮 Majingari Framework
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Unity-6.3%2B-black?style=flat-square&logo=unity" alt="Unity 6.3+"/>
+  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="MIT License"/>
+  <img src="https://img.shields.io/badge/Version-0.0.1--preview-blue?style=flat-square" alt="Version"/>
+</p>
+
 The Majingari Framework is a modular foundation designed to streamline game initialization, player management. It is built using patterns familiar to Unreal Engine developers, providing a structured approach to Unity development
 
 ---
