@@ -2,33 +2,49 @@
 using Majinfwork.StateGraph;
 using Majinfwork.World;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 namespace Majinfwork {
+    /// <summary>
+    /// StateGraph node that loads a level using LevelManager.
+    /// Handles both scene loading and GameMode transitions.
+    /// </summary>
     public class LoadLevel : StateNodeAsset {
         [SerializeField] private SceneReference map;
         public StateTransition onComplete;
 
         public override void Begin() {
-            ServiceLocator.Resolve<LoadingStreamer>().StartLoading(LoadScene);
+            LoadSceneAsync();
         }
 
         public override void Tick() {
-            
         }
 
         public override void End() {
-            
         }
 
-        protected virtual void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
-            SceneManager.sceneLoaded -= OnSceneLoaded;
+        private async void LoadSceneAsync() {
+            var loadingStreamer = ServiceLocator.Resolve<LoadingStreamer>();
+            var levelManager = ServiceLocator.Resolve<LevelManager>();
+
+            if (levelManager == null) {
+                Debug.LogError("[LoadLevel] LevelManager not found!");
+                return;
+            }
+
+            // Fade in loading screen
+            if (loadingStreamer != null) {
+                await loadingStreamer.StartLoadingAsync();
+            }
+
+            // Load the level
+            await levelManager.LoadLevelAsync(map.mapName);
+
+            // Fade out loading screen
+            if (loadingStreamer != null) {
+                await loadingStreamer.StopLoadingAsync();
+            }
+
             TriggerExit(onComplete);
-        }
-
-        private void LoadScene() {
-            SceneManager.sceneLoaded += OnSceneLoaded;
-            SceneManager.LoadScene(map.mapName, LoadSceneMode.Single);
         }
     }
 }

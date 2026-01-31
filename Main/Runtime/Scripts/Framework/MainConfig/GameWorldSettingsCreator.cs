@@ -77,7 +77,7 @@ namespace Majinfwork.World {
 
             SetPrivateField(gameMode, "cameraHandler", new CameraHandlerNone());
             SetPrivateField(gameMode, "gameState", CreateDefaultPrefab<GameState>("Default GameState"));
-            SetPrivateField(gameMode, "hudManager", CreateDefaultPrefab<HUDManager>("Default HUDManager"));
+            SetPrivateField(gameMode, "hudPrefab", CreateDefaultPrefab<HUD>("Default HUD"));
             SetPrivateField(gameMode, "playerControllerPrefab", CreateDefaultPrefab<PlayerController>("Default PlayerController"));
             SetPrivateField(gameMode, "playerStatePrefab", CreateDefaultPrefab<PlayerState>("Default PlayerState"));
             SetPrivateField(gameMode, "playerPawnPrefab", CreateDefaultPrefab<PlayerPawn>("Default PlayerPawn"));

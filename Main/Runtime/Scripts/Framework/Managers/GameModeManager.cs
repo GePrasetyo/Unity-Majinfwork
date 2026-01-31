@@ -8,7 +8,6 @@ namespace Majinfwork.World {
     public class GameModeManager : ScriptableObject {
         [Header("Game Managers")]
         [SerializeField] private GameState gameState;
-        [SerializeField] private HUDManager hudManager;
 
         [Header("Player Setup")]
         [Tooltip("Automatically spawn player 0 on scene load")]
@@ -16,6 +15,7 @@ namespace Majinfwork.World {
         [SerializeField] private PlayerState playerStatePrefab;
         [SerializeField] private PlayerPawn playerPawnPrefab;
         [SerializeField] private PlayerInput playerInputPrefab;
+        [SerializeField] private HUD hudPrefab;
 
         [Header("Camera")]
         [SerializeReference, ClassReference] private CameraHandler cameraHandler;
@@ -29,6 +29,7 @@ namespace Majinfwork.World {
         }
 
         internal void OnDeactive() {
+            CleanupGameManager();
             cameraHandler.Deconstruct();
 
             // Iterate backwards since DespawnPlayer removes from list
@@ -37,9 +38,20 @@ namespace Majinfwork.World {
             }
         }
 
+        private GameState spawnedGameState;
+
         internal void InitiateGameManager() {
-            Instantiate(gameState);
-            Instantiate(hudManager);
+            if (gameState != null) {
+                spawnedGameState = Instantiate(gameState);
+                DontDestroyOnLoad(spawnedGameState.gameObject);
+            }
+        }
+
+        internal void CleanupGameManager() {
+            if (spawnedGameState != null) {
+                Destroy(spawnedGameState.gameObject);
+                spawnedGameState = null;
+            }
         }
 
         /// <summary>
@@ -57,6 +69,7 @@ namespace Majinfwork.World {
             var input = Instantiate(playerInputPrefab);
             var state = Instantiate(playerStatePrefab);
             var pawn = Instantiate(playerPawnPrefab, spawnPos, spawnRot);
+            var hud = hudPrefab != null ? Instantiate(hudPrefab) : null;
             var controller = Instantiate(playerControllerPrefab);
 
             // Make persistent so framework controls lifecycle, not Unity's scene unload
@@ -64,9 +77,10 @@ namespace Majinfwork.World {
             DontDestroyOnLoad(input.gameObject);
             DontDestroyOnLoad(state.gameObject);
             DontDestroyOnLoad(pawn.gameObject);
+            if (hud != null) DontDestroyOnLoad(hud.gameObject);
 
             // Initialize controller with components
-            controller.Initialize(input, state, pawn);
+            controller.Initialize(input, state, pawn, hud);
 
             // Register with PlayerManager
             PlayerManager.RegisterPlayer(controller);
@@ -87,6 +101,7 @@ namespace Majinfwork.World {
             // Destroy player objects
             if (controller.Input != null) Destroy(controller.Input.gameObject);
             if (controller.State != null) Destroy(controller.State.gameObject);
+            if (controller.HUD != null) Destroy(controller.HUD.gameObject);
             if (controller.CurrentPawn != null) Destroy(controller.CurrentPawn.gameObject);
             Destroy(controller.gameObject);
         }

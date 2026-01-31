@@ -519,18 +519,24 @@ namespace Majinfwork.SaveSystem {
                         if (loaded != null) {
                             loaded.OnLoaded();
                             preloadedData[type] = loaded;
-                            Debug.Log($"[SaveDataService] Preloaded {type.Name}");
+                            Debug.Log($"[SaveDataService] Preloaded {type.Name} from {filePath}, loadedType={loaded.GetType().Name}, isLoaded={loaded.isLoaded}, hash={loaded.GetHashCode()}");
+                        }
+                        else {
+                            Debug.LogWarning($"[SaveDataService] Deserialized null for {type.Name}, using default");
+                            preloadedData[type] = instance;
                         }
                     }
                     catch (Exception e) {
                         Debug.LogError($"[SaveDataService] Failed to preload {type.Name}: {e.Message}");
+                        // Use default instance on error, but DON'T save it (don't overwrite potentially valid data)
+                        preloadedData[type] = instance;
                     }
                 }
                 else {
-                    // Create default instance if file doesn't exist
-                    await instance.CreateAsync(this, cancellationToken).ConfigureAwait(false);
+                    // File doesn't exist - use default instance but DON'T save it yet
+                    // Let the game save it explicitly when needed to avoid accidental data loss
+                    Debug.Log($"[SaveDataService] No file for {type.Name} at {filePath}, using default (not saving)");
                     preloadedData[type] = instance;
-                    Debug.Log($"[SaveDataService] Created default preload for {type.Name}");
                 }
             }
 
@@ -544,9 +550,15 @@ namespace Majinfwork.SaveSystem {
         }
 
         public virtual T GetPreloaded<T>() where T : SaveData {
+            Debug.Log($"[SaveDataService] GetPreloaded<{typeof(T).Name}> called, dictionary has {preloadedData.Count} entries");
+            foreach (var kvp in preloadedData) {
+                Debug.Log($"[SaveDataService]   Key={kvp.Key.Name}, Value.Type={kvp.Value?.GetType().Name}, isLoaded={kvp.Value?.isLoaded}, hash={kvp.Value?.GetHashCode()}");
+            }
             if (preloadedData.TryGetValue(typeof(T), out var data)) {
+                Debug.Log($"[SaveDataService] Found match, returning hash={data?.GetHashCode()}");
                 return data as T;
             }
+            Debug.LogWarning($"[SaveDataService] No match found for {typeof(T).Name}");
             return null;
         }
 

@@ -4,7 +4,6 @@ using Majinfwork.World;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
-using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
 
 namespace Majinfwork {
@@ -14,31 +13,37 @@ namespace Majinfwork {
         public StateTransition onComplete;
         public StateTransition onFailed;
 
-        private AsyncOperationHandle<SceneInstance> sceneHandle;
-
         public override void Begin() {
-            ServiceLocator.Resolve<LoadingStreamer>().StartLoading(LoadScene);
+            LoadSceneAsync();
         }
 
         public override void Tick() {
-
         }
 
         public override void End() {
-
         }
 
-        private void LoadScene() {
-            sceneHandle = Addressables.LoadSceneAsync(sceneAddressable, loadSceneMode);
-            sceneHandle.Completed += OnSceneLoaded;
-        }
+        private async void LoadSceneAsync() {
+            var loadingStreamer = ServiceLocator.Resolve<LoadingStreamer>();
 
-        private void OnSceneLoaded(AsyncOperationHandle<SceneInstance> handle) {
-            sceneHandle.Completed -= OnSceneLoaded;
+            // Fade in loading screen
+            if (loadingStreamer != null) {
+                await loadingStreamer.StartLoadingAsync();
+            }
+
+            // Load scene via Addressables
+            var handle = Addressables.LoadSceneAsync(sceneAddressable, loadSceneMode);
+            await handle.Task;
+
+            // Fade out loading screen
+            if (loadingStreamer != null) {
+                await loadingStreamer.StopLoadingAsync();
+            }
 
             if (handle.Status == AsyncOperationStatus.Succeeded) {
                 TriggerExit(onComplete);
-            } else {
+            }
+            else {
                 Debug.LogError($"Failed to load addressable scene: {sceneAddressable.RuntimeKey}");
                 TriggerExit(onFailed);
             }
