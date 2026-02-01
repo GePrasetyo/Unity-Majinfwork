@@ -58,12 +58,42 @@ The framework decouples player logic into four distinct components for maximum f
 *   **PlayerInput:** Handles the Unity Input System actions.
 *   **PlayerState:** Stores persistent data for that specific player.
 
-> [!NOTE]
-> Use the **PlayerAccessor** utility for easy access to player components from any script:
-> ```csharp
-> // Example: Getting the main player's pawn
-> var myPawn = PlayerAccessor.GetMainPlayerPawn<MyPawnType>();
-> ```
+#### **PlayerAccessor API**
+Use the **PlayerAccessor** utility for easy access to player components from any script:
+```csharp
+// Main player shortcuts
+var pawn = PlayerAccessor.GetMainPlayerPawn<MyPawn>();
+var controller = PlayerAccessor.GetMainPlayerController<MyController>();
+var input = PlayerAccessor.GetMainPlayerInput<MyInput>();
+var state = PlayerAccessor.GetMainPlayerState<MyState>();
+
+// Safe try-get patterns
+if (PlayerAccessor.TryGetPlayerController<MyController>(out var ctrl)) {
+    ctrl.DoSomething();
+}
+
+// Multi-player support (by index)
+var player2Pawn = PlayerAccessor.GetPlayerPawn<MyPawn>(index: 1);
+int playerCount = PlayerAccessor.GetPlayerCount();
+```
+
+#### **Possession System**
+PlayerController can possess/unpossess pawns at runtime:
+```csharp
+public class MyController : PlayerController {
+    protected override void OnPossess(PlayerPawn pawn) {
+        // Called when possessing a new pawn
+    }
+
+    protected override void OnUnPossess() {
+        // Called when releasing current pawn
+    }
+}
+
+// Switch pawns at runtime
+controller.Possess(newPawn);
+controller.UnPossess();
+```
 
 ---
 
@@ -76,7 +106,117 @@ Unity does not natively allow referencing objects between different scenes in th
 *   **Usage:** Mark your field in a script with the `[CrossSceneReference]` attribute.
 *   **Resolution:** The **CrossSceneManager** automatically resolves these links via GUID when the scene loads.
 
-The documentation for the **Majingari Framework** has been updated to reflect the latest network features. This update focuses on the robust integration with **Unity Netcode for GameObjects**, featuring a customisable connection lifecycle, LAN discovery, and a detailed approval system.
+
+### **🎬 Level Streaming & Loading**
+
+The framework provides an async scene loading system with built-in loading screen support.
+
+#### **LevelManager**
+The `LevelManager` orchestrates scene transitions and GameMode lifecycle:
+```csharp
+// Load a new level with loading screen
+await GameInstance.Instance.LevelManager.LoadLevelAsync("GameplayScene");
+
+// Check loading state
+if (GameInstance.Instance.LevelManager.IsLoading) { /* ... */ }
+```
+
+#### **Loading Screen Implementations**
+Two loading screen implementations are available:
+
+| Class | UI System | Description |
+| :--- | :--- | :--- |
+| `LoadingStreamerDefault` | **UI Toolkit** | Creates UI at runtime - no prefabs/UXML required. Uses `RuntimeLoadingPanel`. |
+| `LoadingStreamerCanvas` | **Canvas** | Legacy Canvas-based implementation for projects using uGUI. |
+
+Both support:
+*   **Async fade in/out** with configurable speed
+*   **Task coalescing** - multiple callers can await the same fade operation
+*   **Cancellation tokens** - caller cancellation doesn't affect other waiters
+*   **ForceCancel()** - immediately cancel all pending operations
+
+#### **Custom Loading Screens**
+Extend `LoadingStreamer` to create custom loading screens:
+```csharp
+public class MyLoadingScreen : LoadingStreamer {
+    protected override async Task StartLoadingAsync(CancellationToken token) {
+        // Show your loading UI
+    }
+
+    protected override async Task StopLoadingAsync(CancellationToken token) {
+        // Hide your loading UI
+    }
+}
+```
+
+
+### **🖼️ HUD & UI Widget System**
+
+The framework provides a complete UI management system with widget caching, navigation stacks, and model-based data binding.
+
+#### **Basic Usage**
+```csharp
+// Show/Hide widgets
+HUD.Show<GameplayHUD>();
+HUD.Hide<GameplayHUD>();
+
+// Get reference to active widget
+var hud = HUD.Get<GameplayHUD>();
+
+// Async variants (wait for animations)
+await HUD.ShowAsync<GameplayHUD>();
+await HUD.HideAsync<GameplayHUD>();
+```
+
+#### **Model-Based Widgets**
+Pass data models to widgets for clean separation of concerns:
+```csharp
+// Define a model
+public struct PlayerHUDModel {
+    public float healthPercent;
+    public int score;
+}
+
+// Show with model
+HUD.Show<PlayerHUD, PlayerHUDModel>(new PlayerHUDModel {
+    healthPercent = 0.8f,
+    score = 1000
+});
+
+// Widget implementation
+public class PlayerHUD : UIWidget<PlayerHUDModel> {
+    protected override void OnSetup(PlayerHUDModel model) {
+        healthBar.value = model.healthPercent;
+        scoreText.text = model.score.ToString();
+    }
+}
+```
+
+#### **Navigation Stack**
+Built-in stack-based navigation for menu flows:
+```csharp
+// Push screens onto stack
+HUD.Push<SettingsMenu>();
+HUD.Push<AudioSettings>();
+
+// Go back one screen
+HUD.Back();
+
+// Return to root
+HUD.PopToRoot();
+
+// Query stack
+int depth = HUD.StackCount();
+HUD.ClearStack();
+```
+
+#### **UIWidget Lifecycle**
+| Method | Description |
+| :--- | :--- |
+| `Show()` / `ShowAsync()` | Display the widget |
+| `Hide()` / `HideAsync()` | Hide the widget |
+| `Setup(model)` | Pass data to the widget (deferred if inactive) |
+| `Refresh()` | Re-apply current model data |
 
 
 ###  🌐 Networking System
@@ -188,24 +328,68 @@ var loadedData = await service.LoadAsync<PlayerProfileData>("PlayerProfile");
 
 ### **🌍 Localization**
 Easily localize your UI using the integrated localization components:
-*   `LocalizerBasicText`: Localizes **TextMeshPro** text and fonts.
-*   `LocalizationDropdown`: A pre-built dropdown for switching between available languages at runtime.
+
+| Component | Description |
+| :--- | :--- |
+| `LocalizerBasicText` | Localizes **TextMeshPro** text and fonts |
+| `LocalizerFontText` | Font-only localization for text components |
+| `LocalizerInputField` | Localizes input field placeholders |
+| `LocalizerValueText` | Localizes text with dynamic value substitution |
+| `LocalizationDropdown` | Pre-built dropdown for language switching at runtime |
 
 
 ### 📦 Utilities
 
-| Feature | Description |
-| :--- | :--- |
-| **TickSignal** | A custom ticking system that integrates with the Unity Player Loop for high-performance updates. |
-| **PoolByReference** | An efficient object pooling system that uses reference-based keys for instantiation. |
-| **PhysxExtension** | Non-allocating physics helpers like `OverlapSphere` and `IsObstructed` checks. |
+#### **TickSignal**
+A custom ticking system that integrates with Unity's PlayerLoop for decoupled updates:
+```csharp
+public class MyComponent : MonoBehaviour, ITickObject {
+    void OnEnable() => this.RegisterTick();
+    void OnDisable() => this.UnregisterTick();
+
+    public void Tick() {
+        // Called every frame, independent of MonoBehaviour
+    }
+}
+
+// Also supports fixed tick
+public class PhysicsComponent : MonoBehaviour, IFixedTickObject {
+    public void FixedTick() {
+        // Called every fixed update
+    }
+}
+```
+
+#### **Object Pooling**
+Three pooling implementations for different use cases:
+
+| Class | Use Case | Example |
+| :--- | :--- | :--- |
+| `PoolByReference` | Prefab pooling with extension methods | `prefab.InstantiatePoolRef()` |
+| `PoolByUnityObject<T>` | Manual pool for Unity objects | Custom capacity/callbacks |
+| `PoolByObject<T>` | Generic C# object pooling | Non-Unity classes |
+
+**PoolByReference** (most common):
+```csharp
+// Spawn from pool (uses prefab as key)
+prefab.InstantiatePoolRef(position, rotation, out Transform instance);
+
+// Return to pool
+instance.ReleasePoolRef(prefab);
+```
+
+#### **PhysxExtension**
+Non-allocating physics helpers with pre-allocated buffers:
+```csharp
+// Non-allocating overlap (reuses internal buffer)
+List<Collider> results = new();
+PhysxExtension.OverlapSphere(ref results, position, radius, layerMask);
+
+// Obstruction check with optional destructible support
+bool blocked = PhysxExtension.IsObstructed(from, to, layerMask, maxDistance);
+```
 
 ---
 
 ## 📜 License
 This project is licensed under the **MIT License**.
-
----
-
-**Analogy for Understanding:**
-Think of the **Majingari Framework** as a **Smart Home Hub**. The `GameWorldSettings` is the hub itself that connects everything. The `WorldConfig` is the **profile** (e.g., "Movie Night" or "Cleaning Mode") that decides which devices (**GameModes**) turn on in which rooms (**Scenes**). The `PlayerController` is the **remote control** that can operate different appliances (**Pawns**) while keeping the same batteries (**PlayerState**).
