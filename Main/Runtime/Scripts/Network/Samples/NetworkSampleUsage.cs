@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Majinfwork.Network.Samples {
@@ -187,48 +189,94 @@ namespace Majinfwork.Network.Samples {
     }
 
     /// <summary>
-    /// Example: UI controller for browsing and joining LAN sessions.
+    /// Example: Session browser UI using async enumerable pattern.
     /// Attach this to a UI GameObject in your lobby scene.
     /// </summary>
-    public class LANBrowserUI : MonoBehaviour {
+    public class SessionBrowserUI : MonoBehaviour {
+        [SerializeField] private float scanDuration = 10f;
+
         private ILANDiscoveryService lanDiscovery;
         private INetworkService networkService;
+        private CancellationTokenSource scanCts;
 
         private void Start() {
             // Get services (after UNetcodeConnectionHandler.Initialize() is called)
             lanDiscovery = ServiceLocator.Resolve<ILANDiscoveryService>();
             networkService = ServiceLocator.Resolve<INetworkService>();
-
-            if (lanDiscovery != null) {
-                lanDiscovery.OnSessionDiscovered += OnSessionFound;
-                lanDiscovery.OnSessionLost += OnSessionLost;
-                lanDiscovery.OnSessionUpdated += OnSessionUpdated;
-                lanDiscovery.OnScanComplete += OnScanFinished;
-            }
         }
 
         private void OnDestroy() {
-            if (lanDiscovery != null) {
-                lanDiscovery.OnSessionDiscovered -= OnSessionFound;
-                lanDiscovery.OnSessionLost -= OnSessionLost;
-                lanDiscovery.OnSessionUpdated -= OnSessionUpdated;
-                lanDiscovery.OnScanComplete -= OnScanFinished;
+            StopScanning();
+        }
+
+        /// <summary>
+        /// Start scanning for sessions. Call from UI button.
+        /// </summary>
+        public async void StartScanning() {
+            if (lanDiscovery == null) {
+                Debug.LogWarning("LAN Discovery not available!");
+                return;
+            }
+
+            StopScanning();
+            scanCts = new CancellationTokenSource();
+
+            Debug.Log("Starting session scan...");
+
+            try {
+                await foreach (var evt in lanDiscovery.ScanAsync(
+                    timeout: TimeSpan.FromSeconds(scanDuration),
+                    cancellationToken: scanCts.Token)) {
+
+                    switch (evt.Type) {
+                        case DiscoveryEventType.ScanStarted:
+                            Debug.Log("Scan started");
+                            // Show loading indicator, clear old UI list
+                            break;
+
+                        case DiscoveryEventType.Discovered:
+                            Debug.Log($"Found: {evt.Session}");
+                            // Add session to UI list
+                            // Access custom metadata if using custom LANDiscoveryService:
+                            var gameMode = evt.Session.GetMetadata<string>("gameMode", "Unknown");
+                            Debug.Log($"  Game Mode: {gameMode}");
+                            break;
+
+                        case DiscoveryEventType.Updated:
+                            Debug.Log($"Updated: {evt.Session}");
+                            // Update session in UI list (player count changed, etc.)
+                            break;
+
+                        case DiscoveryEventType.Lost:
+                            Debug.Log($"Lost: {evt.Session.SessionName}");
+                            // Remove session from UI list
+                            break;
+
+                        case DiscoveryEventType.ScanComplete:
+                            Debug.Log($"Scan complete. Found {lanDiscovery.DiscoveredSessions.Count} session(s)");
+                            // Hide loading indicator, enable refresh button
+                            break;
+                    }
+                }
+            }
+            catch (OperationCanceledException) {
+                Debug.Log("Scan cancelled");
             }
         }
 
-        // Call this from UI button
-        public void RefreshSessionList() {
-            Debug.Log("Scanning for LAN sessions...");
-            lanDiscovery?.StartScan();
-        }
-
-        // Call this from UI button
+        /// <summary>
+        /// Stop the current scan. Call from UI button or OnDestroy.
+        /// </summary>
         public void StopScanning() {
-            lanDiscovery?.StopScan();
+            scanCts?.Cancel();
+            scanCts?.Dispose();
+            scanCts = null;
         }
 
-        // Call this when user selects a session from the list
-        public void JoinSelectedSession(DiscoveredSession session, string password = null) {
+        /// <summary>
+        /// Join a selected session. Call when user clicks on a session in the list.
+        /// </summary>
+        public void JoinSession(DiscoveredSession session, string password = null) {
             if (session == null) {
                 Debug.LogWarning("No session selected!");
                 return;
@@ -241,25 +289,25 @@ namespace Majinfwork.Network.Samples {
                 return;
             }
 
-            // Check if session is full
             if (session.IsFull) {
                 Debug.LogWarning("Session is full!");
                 return;
             }
 
-            // Check if password is required
             if (session.HasPassword && string.IsNullOrEmpty(password)) {
                 Debug.LogWarning("Password required!");
                 // Show password input dialog
                 return;
             }
 
-            Debug.Log($"Joining session: {session.SessionName}");
+            StopScanning();
             networkService?.JoinSession(session, password);
         }
 
-        // Call this from UI button to host a new session
-        public void HostNewSession(string sessionName, int maxPlayers, string password = null) {
+        /// <summary>
+        /// Host a new session. Call from UI button.
+        /// </summary>
+        public void HostSession(string sessionName, int maxPlayers, string password = null) {
             var settings = new SessionSettings {
                 sessionName = sessionName,
                 maxPlayers = maxPlayers,
@@ -272,38 +320,130 @@ namespace Majinfwork.Network.Samples {
             settings.SetCustomData("mapName", "Arena");
             settings.SetCustomData("isRanked", false);
 
+            StopScanning();
             networkService?.HostSession(settings);
         }
+    }
 
-        private void OnSessionFound(DiscoveredSession session) {
-            Debug.Log($"Found session: {session}");
+    /// <summary>
+    /// Example: Quick Join / Matchmaking using FindSessionAsync.
+    /// </summary>
+    public class QuickJoinUI : MonoBehaviour {
+        [SerializeField] private float searchTimeout = 15f;
 
-            // Access custom discovery data
-            var gameMode = session.GetMetadata<string>("gameMode");
-            var mapName = session.GetMetadata<string>("mapName");
-            var isRanked = session.GetMetadata<bool>("isRanked");
+        private ILANDiscoveryService lanDiscovery;
+        private INetworkService networkService;
+        private CancellationTokenSource searchCts;
 
-            Debug.Log($"  Mode: {gameMode}, Map: {mapName}, Ranked: {isRanked}");
+        private void Start() {
+            lanDiscovery = ServiceLocator.Resolve<ILANDiscoveryService>();
+            networkService = ServiceLocator.Resolve<INetworkService>();
+        }
 
+        private void OnDestroy() {
+            CancelSearch();
+        }
+
+        /// <summary>
+        /// Quick join - find and join the first available session.
+        /// </summary>
+        public async void QuickJoin() {
+            if (lanDiscovery == null || networkService == null) {
+                Debug.LogWarning("Network services not available!");
+                return;
+            }
+
+            CancelSearch();
+            searchCts = new CancellationTokenSource();
+
+            Debug.Log("Searching for available session...");
+            // Show "Searching..." UI
+
+            var config = Resources.Load<NetworkConfig>("Network Config");
+            var protocolVersion = config?.protocolVersion ?? 1;
+
+            try {
+                var session = await lanDiscovery.FindSessionAsync(
+                    predicate: s => !s.IsFull && !s.HasPassword && s.IsCompatible(protocolVersion),
+                    timeout: TimeSpan.FromSeconds(searchTimeout),
+                    cancellationToken: searchCts.Token
+                );
+
+                if (session != null) {
+                    Debug.Log($"Found session: {session.SessionName}. Joining...");
+                    networkService.JoinSession(session);
+                }
+                else {
+                    Debug.Log("No available session found. Consider hosting?");
+                    // Show "No sessions found" dialog with option to host
+                }
+            }
+            catch (OperationCanceledException) {
+                Debug.Log("Search cancelled");
+            }
+        }
+
+        /// <summary>
+        /// Cancel the current search.
+        /// </summary>
+        public void CancelSearch() {
+            searchCts?.Cancel();
+            searchCts?.Dispose();
+            searchCts = null;
+        }
+    }
+
+    /// <summary>
+    /// Example: Continuous background scanning (e.g., for a lobby that auto-updates).
+    /// </summary>
+    public class ContinuousScannerUI : MonoBehaviour {
+        private ILANDiscoveryService lanDiscovery;
+        private CancellationTokenSource scanCts;
+
+        private void Start() {
+            lanDiscovery = ServiceLocator.Resolve<ILANDiscoveryService>();
+        }
+
+        private void OnDestroy() {
+            StopScanning();
+        }
+
+        /// <summary>
+        /// Start continuous scanning (no timeout - runs until stopped).
+        /// </summary>
+        public async void StartContinuousScanning() {
+            if (lanDiscovery == null) return;
+
+            StopScanning();
+            scanCts = new CancellationTokenSource();
+
+            try {
+                // timeout: null means scan indefinitely
+                await foreach (var evt in lanDiscovery.ScanAsync(timeout: null, cancellationToken: scanCts.Token)) {
+                    switch (evt.Type) {
+                        case DiscoveryEventType.Discovered:
+                        case DiscoveryEventType.Updated:
+                        case DiscoveryEventType.Lost:
+                            // Refresh UI with current session list
+                            RefreshUI(lanDiscovery.DiscoveredSessions);
+                            break;
+                    }
+                }
+            }
+            catch (OperationCanceledException) {
+                // Expected when stopping
+            }
+        }
+
+        public void StopScanning() {
+            scanCts?.Cancel();
+            scanCts?.Dispose();
+            scanCts = null;
+        }
+
+        private void RefreshUI(System.Collections.Generic.IReadOnlyList<DiscoveredSession> sessions) {
             // Update your UI list here
-            // sessionListUI.AddSession(session);
-        }
-
-        private void OnSessionLost(DiscoveredSession session) {
-            Debug.Log($"Session no longer available: {session.SessionName}");
-            // Remove from UI list
-            // sessionListUI.RemoveSession(session);
-        }
-
-        private void OnSessionUpdated(DiscoveredSession session) {
-            Debug.Log($"Session updated: {session}");
-            // Update UI list item
-            // sessionListUI.UpdateSession(session);
-        }
-
-        private void OnScanFinished() {
-            Debug.Log($"Scan complete. Found {lanDiscovery?.DiscoveredSessions.Count ?? 0} sessions.");
-            // Update UI state (hide loading indicator, etc.)
+            Debug.Log($"Sessions: {sessions.Count}");
         }
     }
 

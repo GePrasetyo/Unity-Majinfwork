@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -9,6 +11,7 @@ using UnityEngine;
 namespace Majinfwork.Network {
     /// <summary>
     /// LAN discovery service for finding and advertising sessions on the local network.
+    /// Uses async enumerable pattern for consuming discovery events.
     /// Extend this class to customize discovery behavior.
     /// </summary>
     public class LANDiscoveryService : NetworkDiscovery<DiscoveryBroadcastData, DiscoveryResponseData>, ILANDiscoveryService {
@@ -16,17 +19,16 @@ namespace Majinfwork.Network {
         protected readonly ISessionManager sessionManager;
         protected readonly Func<ushort> getTransportPort;
 
-        protected readonly Dictionary<IPEndPoint, DiscoveredSession> sessions = new Dictionary<IPEndPoint, DiscoveredSession>();
+        protected readonly Dictionary<IPEndPoint, DiscoveredSession> sessions = new();
         protected CancellationTokenSource scanTokenSource;
+
+        // Unity-compatible async event queue (replaces System.Threading.Channels)
+        protected ConcurrentQueue<DiscoveryEvent> eventQueue;
+        protected SemaphoreSlim eventSignal;
+        protected volatile bool channelCompleted;
 
         public IReadOnlyList<DiscoveredSession> DiscoveredSessions => sessions.Values.ToList().AsReadOnly();
         public bool IsScanning => scanTokenSource != null && !scanTokenSource.IsCancellationRequested;
-
-        public event Action<DiscoveredSession> OnSessionDiscovered;
-        public event Action<DiscoveredSession> OnSessionLost;
-        public event Action<DiscoveredSession> OnSessionUpdated;
-        public event Action OnScanStarted;
-        public event Action OnScanComplete;
 
         public LANDiscoveryService(NetworkConfig config, ISessionManager sessionManager, Func<ushort> getTransportPort) {
             this.config = config;
@@ -35,30 +37,86 @@ namespace Majinfwork.Network {
             this.port = config.discoveryPort;
         }
 
+        #region Public API
+
         /// <summary>
-        /// Starts scanning for LAN sessions.
+        /// Scans for LAN sessions, yielding discovery events as they occur.
         /// </summary>
-        public virtual void StartScan(CancellationToken externalToken = default) {
+        public virtual async IAsyncEnumerable<DiscoveryEvent> ScanAsync(
+            TimeSpan? timeout = null,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default) {
+
+            // Stop any existing scan
             StopScan();
             ClearSessions();
 
-            scanTokenSource = externalToken == default
-                ? new CancellationTokenSource()
-                : CancellationTokenSource.CreateLinkedTokenSource(externalToken);
+            // Create linked token source for timeout and external cancellation
+            scanTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var token = scanTokenSource.Token;
 
+            // Create event queue and signal (Unity-compatible replacement for Channel<T>)
+            eventQueue = new ConcurrentQueue<DiscoveryEvent>();
+            eventSignal = new SemaphoreSlim(0);
+            channelCompleted = false;
+
+            // Start UDP discovery
             SearchLocalSession();
-            OnScanStarted?.Invoke();
+
+            // Yield scan started event
+            yield return DiscoveryEvent.ScanStarted();
             OnScanStartedInternal();
 
-            _ = ScanLoopAsync(scanTokenSource.Token);
+            Debug.Log($"[LANDiscovery] Started scanning{(timeout.HasValue ? $" for {timeout.Value.TotalSeconds}s" : " indefinitely")}");
 
-            Debug.Log($"[LANDiscovery] Started scanning for {config.discoveryTimeout} seconds");
+            // Start the scan loop (broadcasts and prunes stale sessions)
+            _ = ScanLoopAsync(timeout, token);
+
+            // Read events from queue and yield them
+            try {
+                while (!channelCompleted || !eventQueue.IsEmpty) {
+                    // Wait for signal or check periodically
+                    try {
+                        await eventSignal.WaitAsync(100, token);
+                    }
+                    catch (OperationCanceledException) {
+                        break;
+                    }
+
+                    // Drain all available events
+                    while (eventQueue.TryDequeue(out var evt)) {
+                        yield return evt;
+                    }
+                }
+            }
+            finally {
+                // Cleanup when enumeration completes (normally or via cancellation)
+                CleanupScan();
+            }
         }
 
         /// <summary>
-        /// Called when scan starts. Override for custom handling.
+        /// Finds the first session matching the predicate.
+        /// Useful for "Quick Join" / matchmaking.
         /// </summary>
-        protected virtual void OnScanStartedInternal() { }
+        public virtual async Task<DiscoveredSession> FindSessionAsync(
+            Func<DiscoveredSession, bool> predicate,
+            TimeSpan? timeout = null,
+            CancellationToken cancellationToken = default) {
+
+            if (predicate == null)
+                throw new ArgumentNullException(nameof(predicate));
+
+            await foreach (var evt in ScanAsync(timeout, cancellationToken)) {
+                if (evt.Type == DiscoveryEventType.Discovered || evt.Type == DiscoveryEventType.Updated) {
+                    if (predicate(evt.Session)) {
+                        StopScan();
+                        return evt.Session;
+                    }
+                }
+            }
+
+            return null;
+        }
 
         /// <summary>
         /// Stops the current scan.
@@ -69,6 +127,13 @@ namespace Majinfwork.Network {
                 scanTokenSource.Dispose();
                 scanTokenSource = null;
             }
+
+            // Mark channel as completed to end enumeration
+            channelCompleted = true;
+            eventSignal?.Release();
+            eventSignal?.Dispose();
+            eventSignal = null;
+            eventQueue = null;
 
             StopDiscovery();
             Debug.Log("[LANDiscovery] Scan stopped");
@@ -90,12 +155,43 @@ namespace Majinfwork.Network {
             Debug.Log("[LANDiscovery] Started hosting - responding to discovery broadcasts");
         }
 
+        #endregion
+
+        #region Internal Methods
+
+        private void CleanupScan() {
+            scanTokenSource?.Cancel();
+            scanTokenSource?.Dispose();
+            scanTokenSource = null;
+            channelCompleted = true;
+            eventSignal?.Dispose();
+            eventSignal = null;
+            eventQueue = null;
+            StopDiscovery();
+        }
+
         /// <summary>
-        /// The main scan loop. Override to customize scan behavior.
+        /// Queues an event to be yielded by ScanAsync.
+        /// Call this after updating the sessions dictionary.
         /// </summary>
-        protected virtual async Task ScanLoopAsync(CancellationToken token) {
+        protected void QueueEvent(DiscoveryEvent evt) {
+            if (eventQueue != null && !channelCompleted) {
+                eventQueue.Enqueue(evt);
+                try {
+                    eventSignal?.Release();
+                }
+                catch (ObjectDisposedException) {
+                    // Ignore if already disposed
+                }
+            }
+        }
+
+        /// <summary>
+        /// The main scan loop - sends broadcasts and prunes stale sessions.
+        /// </summary>
+        protected virtual async Task ScanLoopAsync(TimeSpan? timeout, CancellationToken token) {
             var startTime = Time.realtimeSinceStartup;
-            var endTime = startTime + config.discoveryTimeout;
+            var endTime = timeout.HasValue ? startTime + (float)timeout.Value.TotalSeconds : float.MaxValue;
 
             while (!token.IsCancellationRequested && Time.realtimeSinceStartup < endTime) {
                 // Send discovery broadcast
@@ -113,10 +209,20 @@ namespace Majinfwork.Network {
                 PruneStaleSessions();
             }
 
+            // Queue scan complete event if we finished normally (not cancelled)
             if (!token.IsCancellationRequested) {
-                OnScanComplete?.Invoke();
+                QueueEvent(DiscoveryEvent.ScanComplete());
                 OnScanCompletedInternal();
                 Debug.Log($"[LANDiscovery] Scan complete. Found {sessions.Count} session(s)");
+            }
+
+            // Mark channel as completed to end enumeration
+            channelCompleted = true;
+            try {
+                eventSignal?.Release();
+            }
+            catch (ObjectDisposedException) {
+                // Ignore if already disposed
             }
         }
 
@@ -128,6 +234,11 @@ namespace Majinfwork.Network {
                 protocolVersion = config.protocolVersion
             };
         }
+
+        /// <summary>
+        /// Called when scan starts. Override for custom handling.
+        /// </summary>
+        protected virtual void OnScanStartedInternal() { }
 
         /// <summary>
         /// Called when scan completes. Override for custom handling.
@@ -150,8 +261,9 @@ namespace Majinfwork.Network {
 
             foreach (var endpoint in staleEndpoints) {
                 if (sessions.TryGetValue(endpoint, out var session)) {
+                    // Update list first, then queue event
                     sessions.Remove(endpoint);
-                    OnSessionLost?.Invoke(session);
+                    QueueEvent(DiscoveryEvent.Lost(session));
                     OnSessionLostInternal(session);
                     Debug.Log($"[LANDiscovery] Session lost (stale): {session.SessionName}");
                 }
@@ -162,6 +274,10 @@ namespace Majinfwork.Network {
         /// Called when a session is lost. Override for custom handling.
         /// </summary>
         protected virtual void OnSessionLostInternal(DiscoveredSession session) { }
+
+        #endregion
+
+        #region NetworkDiscovery Overrides
 
         /// <summary>
         /// Processes incoming broadcast requests (server-side).
@@ -210,18 +326,18 @@ namespace Majinfwork.Network {
             var gameEndpoint = new IPEndPoint(sender.Address, response.port);
 
             if (sessions.TryGetValue(gameEndpoint, out var existingSession)) {
-                // Update existing session
+                // Update existing session, then queue event
                 existingSession.CurrentPlayers = response.currentPlayers;
                 existingSession.LastSeen = DateTime.UtcNow;
                 existingSession.CustomDataJson = response.customDataJson;
-                OnSessionUpdated?.Invoke(existingSession);
+                QueueEvent(DiscoveryEvent.Updated(existingSession));
                 OnSessionUpdatedInternal(existingSession, response);
             }
             else {
-                // New session discovered
+                // Add new session, then queue event
                 var discoveredSession = CreateDiscoveredSession(gameEndpoint, response);
                 sessions[gameEndpoint] = discoveredSession;
-                OnSessionDiscovered?.Invoke(discoveredSession);
+                QueueEvent(DiscoveryEvent.Discovered(discoveredSession));
                 OnSessionDiscoveredInternal(discoveredSession, response);
 
                 Debug.Log($"[LANDiscovery] Discovered: {discoveredSession}");
@@ -253,5 +369,7 @@ namespace Majinfwork.Network {
         /// Called when an existing session is updated. Override for custom handling.
         /// </summary>
         protected virtual void OnSessionUpdatedInternal(DiscoveredSession session, DiscoveryResponseData response) { }
+
+        #endregion
     }
 }

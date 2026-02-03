@@ -398,79 +398,84 @@ connectionHandler.Shutdown();
 > [!NOTE]
 > LAN Discovery is only available if **LAN Support** is enabled in the Inspector.
 
+The LAN Discovery system uses an **async enumerable pattern** for clean, modern C# code.
+
+**Session Browser (scan with timeout):**
 ```csharp
 var lanDiscovery = ServiceLocator.Resolve<ILANDiscoveryService>();
-if (lanDiscovery == null) {
-    Debug.LogWarning("LAN Support not enabled!");
-    return;
+var cts = new CancellationTokenSource();
+
+try {
+    await foreach (var evt in lanDiscovery.ScanAsync(
+        timeout: TimeSpan.FromSeconds(10),
+        cancellationToken: cts.Token)) {
+
+        switch (evt.Type) {
+            case DiscoveryEventType.ScanStarted:
+                // Show loading indicator
+                break;
+            case DiscoveryEventType.Discovered:
+                AddToUI(evt.Session);
+                break;
+            case DiscoveryEventType.Updated:
+                UpdateInUI(evt.Session);
+                break;
+            case DiscoveryEventType.Lost:
+                RemoveFromUI(evt.Session);
+                break;
+            case DiscoveryEventType.ScanComplete:
+                // Hide loading, enable refresh button
+                break;
+        }
+    }
+}
+catch (OperationCanceledException) {
+    // User cancelled or left screen
 }
 
-// Subscribe to discovery events (do this once, e.g., in Start)
-lanDiscovery.OnSessionDiscovered += OnSessionFound;
-lanDiscovery.OnSessionUpdated += OnSessionUpdated;
-lanDiscovery.OnSessionLost += OnSessionLost;
-lanDiscovery.OnScanComplete += OnScanComplete;
-
-// Start scanning (runs for discoveryTimeout duration)
-lanDiscovery.StartScan();
-
-// Stop scanning early
-lanDiscovery.StopScan();
-
-// Get current list of discovered sessions
+// Access current sessions anytime during scan
 var sessions = lanDiscovery.DiscoveredSessions;
 ```
 
-**Event Handlers:**
+**Quick Join / Matchmaking:**
 ```csharp
-private void OnSessionFound(DiscoveredSession session) {
-    Debug.Log($"Found: {session.SessionName} @ {session.Address}:{session.Port}");
-    Debug.Log($"Players: {session.CurrentPlayers}/{session.MaxPlayers}");
-    Debug.Log($"Password: {session.HasPassword}, Full: {session.IsFull}");
+// Find first available session matching criteria
+var session = await lanDiscovery.FindSessionAsync(
+    predicate: s => !s.IsFull && !s.HasPassword && s.IsCompatible(protocolVersion),
+    timeout: TimeSpan.FromSeconds(15),
+    cancellationToken: cts.Token
+);
 
-    // Access custom metadata (set via SessionSettings.SetCustomData on host)
-    var gameMode = session.GetMetadata<string>("gameMode", "Unknown");
+if (session != null) {
+    networkService.JoinSession(session);
 }
-
-private void OnSessionUpdated(DiscoveredSession session) {
-    // Player count changed, metadata updated, etc.
-}
-
-private void OnSessionLost(DiscoveredSession session) {
-    // Session no longer responding (timed out)
-}
-
-private void OnScanComplete() {
-    Debug.Log($"Scan complete. Found {lanDiscovery.DiscoveredSessions.Count} sessions");
+else {
+    // No session found - offer to host
 }
 ```
 
-**Filtering & Joining Sessions:**
+**Continuous Scanning (no timeout):**
 ```csharp
-public void JoinSelectedSession(DiscoveredSession session, string password = null) {
-    if (session == null) return;
-
-    var config = Resources.Load<NetworkConfig>("Network Config");
-
-    // Check compatibility
-    if (!session.IsCompatible(config.protocolVersion)) {
-        Debug.LogWarning("Version mismatch!");
-        return;
-    }
-
-    if (session.IsFull) {
-        Debug.LogWarning("Session is full!");
-        return;
-    }
-
-    if (session.HasPassword && string.IsNullOrEmpty(password)) {
-        // Show password input dialog
-        return;
-    }
-
-    networkService.JoinSession(session, password);
+// Scan indefinitely until cancelled
+await foreach (var evt in lanDiscovery.ScanAsync(timeout: null, cancellationToken: cts.Token)) {
+    RefreshUI(lanDiscovery.DiscoveredSessions);
 }
 ```
+
+**DiscoveryEvent Types:**
+| Type | Description |
+| :--- | :--- |
+| `ScanStarted` | Scan has begun. Session is null. |
+| `Discovered` | New session found on network. |
+| `Updated` | Existing session data changed (player count, etc.). |
+| `Lost` | Session stopped responding and was removed. |
+| `ScanComplete` | Scan finished (timeout reached). Session is null. |
+
+**Key Behaviors:**
+- Sessions are **cleared automatically** when `ScanAsync()` starts
+- `DiscoveredSessions` list is updated **before** each event is yielded
+- Scan runs until **timeout** or **cancellation** (whichever comes first)
+- Pass `timeout: null` for indefinite scanning
 
 #### **8. Connection Status Codes**
 | Status | Meaning |
