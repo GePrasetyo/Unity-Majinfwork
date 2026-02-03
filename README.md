@@ -23,10 +23,6 @@ The Majingari Framework is a modular foundation designed to streamline game init
   - [Level Streaming & Loading](#-level-streaming--loading)
   - [HUD & UI Widget System](#️-hud--ui-widget-system)
   - [Networking System](#-networking-system)
-    - [Hosting a Session](#3-hosting-a-session)
-    - [Joining a Session](#4-joining-a-session)
-    - [LAN Discovery & Matchmaking](#5-lan-discovery--matchmaking)
-    - [Custom Connection Handler](#7-custom-connection-handler)
   - [Save System](#-save-system)
   - [Localization (Legacy)](#-localization-legacy)
   - [Utilities](#-utilities)
@@ -255,16 +251,54 @@ UNetcodeConnectionHandler (Main Entry Point)
   └── NetworkManager (Unity Netcode)
 ```
 
-#### **1. Initialization & Service Access**
-After calling `UNetcodeConnectionHandler.Initialize()`, services are auto-registered via ServiceLocator:
+#### **1. Setup**
+
+**Step 1: Create NetworkConfig asset**
+*   Right-click > Create > MFramework/Config Object/Network Config
+*   Configure settings (see table below)
+
+**Step 2: Scene Setup**
+*   Add a GameObject with `NetworkManager` component
+*   Add `UNetcodeConnectionHandler` (or your custom subclass) to the **same GameObject**
+*   In the Inspector:
+    *   Assign your **NetworkConfig** asset
+    *   Enable **LAN Support** checkbox if you need LAN discovery
+    *   Set **Default Player Name** (fallback if PlayerPrefs not set)
+
+**Step 3: Initialize at Runtime**
 ```csharp
-var networkService = ServiceLocator.Resolve<INetworkService>();
-var sessionManager = ServiceLocator.Resolve<ISessionManager>();
-var lanDiscovery = ServiceLocator.Resolve<ILANDiscoveryService>();
+// Option A: Let UNetcodeConnectionHandler use its serialized NetworkConfig
+connectionHandler.Initialize(connectionHandler.networkConfig);
+
+// Option B: Load config from Resources
+var config = Resources.Load<NetworkConfig>("Network Config");
+connectionHandler.Initialize(config);
+```
+
+> [!IMPORTANT]
+> Services are only available **after** `Initialize()` is called. Call `Shutdown()` when done (e.g., OnApplicationQuit).
+
+**Bootstrap Pattern (Recommended):**
+```csharp
+public class NetworkBootstrap : MonoBehaviour {
+    [SerializeField] private NetworkConfig networkConfig;
+    [SerializeField] private UNetcodeConnectionHandler connectionHandler;
+
+    private void Start() {
+        // Auto-find if not assigned
+        networkConfig ??= Resources.Load<NetworkConfig>("Network Config");
+        connectionHandler ??= FindObjectOfType<UNetcodeConnectionHandler>();
+
+        connectionHandler.Initialize(networkConfig);
+    }
+
+    private void OnApplicationQuit() {
+        connectionHandler?.Shutdown();
+    }
+}
 ```
 
 #### **2. Network Configuration**
-Create via: **Right-click > Create > MFramework/Config Object/Network Config**
 
 | Field | Default | Description |
 | :--- | :--- | :--- |
@@ -277,19 +311,31 @@ Create via: **Right-click > Create > MFramework/Config Object/Network Config**
 | `connectionTimeout` | 10f | Connection attempt timeout |
 | `defaultMaxPlayers` | 4 | Default session capacity |
 
-#### **3. Hosting a Session**
+#### **3. Service Access**
+After `Initialize()`, services are available via ServiceLocator:
 ```csharp
-// Create session settings
-var settings = SessionSettings.Create(
-    name: "My Game Session",
-    maxPlayers: 4,
-    password: null,  // null = no password
-    mapIndex: 0
-);
+var networkService = ServiceLocator.Resolve<INetworkService>();
+var sessionManager = ServiceLocator.Resolve<ISessionManager>();
 
-// Add custom metadata (broadcasted to LAN discovery)
+// Only available if LAN Support is enabled in Inspector
+var lanDiscovery = ServiceLocator.Resolve<ILANDiscoveryService>();
+```
+
+#### **4. Hosting a Session**
+```csharp
+var networkService = ServiceLocator.Resolve<INetworkService>();
+
+// Create session settings
+var settings = new SessionSettings {
+    sessionName = "My Game Session",
+    maxPlayers = 4,
+    password = null,  // null = no password
+    mapIndex = 0
+};
+
+// Add custom metadata (available in LAN discovery)
 settings.SetCustomData("gameMode", "TeamDeathmatch");
-settings.SetCustomData("difficulty", 2);
+settings.SetCustomData("mapName", "Arena");
 
 // Start hosting
 networkService.HostSession(settings);
@@ -297,12 +343,14 @@ networkService.HostSession(settings);
 // Check host status
 if (networkService.IsHost) {
     var session = networkService.CurrentSession;
-    Debug.Log($"Hosting: {session.SessionName} ({session.CurrentPlayerCount}/{session.MaxPlayers})");
+    Debug.Log($"Hosting: {session.SessionName}");
 }
 ```
 
-#### **4. Joining a Session**
+#### **5. Joining a Session**
 ```csharp
+var networkService = ServiceLocator.Resolve<INetworkService>();
+
 // Option A: Join by IP address
 networkService.JoinSession(
     address: "192.168.1.100",
@@ -336,44 +384,95 @@ networkService.OnStatusChanged += (status) => {
 };
 ```
 
-#### **5. LAN Discovery & Matchmaking**
+#### **6. Leaving a Session**
+```csharp
+// Leave current session (works for both host and client)
+networkService.LeaveSession();
+
+// Full shutdown (unregisters services, call on app quit)
+connectionHandler.Shutdown();
+```
+
+#### **7. LAN Discovery & Matchmaking**
+
+> [!NOTE]
+> LAN Discovery is only available if **LAN Support** is enabled in the Inspector.
+
 ```csharp
 var lanDiscovery = ServiceLocator.Resolve<ILANDiscoveryService>();
+if (lanDiscovery == null) {
+    Debug.LogWarning("LAN Support not enabled!");
+    return;
+}
+
+// Subscribe to discovery events (do this once, e.g., in Start)
+lanDiscovery.OnSessionDiscovered += OnSessionFound;
+lanDiscovery.OnSessionUpdated += OnSessionUpdated;
+lanDiscovery.OnSessionLost += OnSessionLost;
+lanDiscovery.OnScanComplete += OnScanComplete;
 
 // Start scanning (runs for discoveryTimeout duration)
 lanDiscovery.StartScan();
 
-// Subscribe to discovery events
-lanDiscovery.OnSessionDiscovered += (session) => {
-    Debug.Log($"Found: {session.SessionName} @ {session.Address}:{session.Port}");
-    Debug.Log($"Players: {session.CurrentPlayers}/{session.MaxPlayers}");
-    Debug.Log($"Password protected: {session.HasPassword}");
+// Stop scanning early
+lanDiscovery.StopScan();
 
-    // Access custom metadata
-    var gameMode = session.GetMetadata<string>("gameMode", "Unknown");
-};
-
-lanDiscovery.OnSessionUpdated += (session) => {
-    // Player count changed, etc.
-};
-
-lanDiscovery.OnSessionLost += (session) => {
-    // Session no longer responding
-};
-
-lanDiscovery.OnScanComplete += () => {
-    Debug.Log($"Scan complete. Found {lanDiscovery.DiscoveredSessions.Count} sessions");
-};
-
-// Filter joinable sessions
-var joinable = lanDiscovery.DiscoveredSessions
-    .Where(s => s.IsCompatible(protocolVersion))
-    .Where(s => !s.IsFull)
-    .Where(s => !s.HasPassword || userHasPassword)
-    .ToList();
+// Get current list of discovered sessions
+var sessions = lanDiscovery.DiscoveredSessions;
 ```
 
-#### **6. Connection Status Codes**
+**Event Handlers:**
+```csharp
+private void OnSessionFound(DiscoveredSession session) {
+    Debug.Log($"Found: {session.SessionName} @ {session.Address}:{session.Port}");
+    Debug.Log($"Players: {session.CurrentPlayers}/{session.MaxPlayers}");
+    Debug.Log($"Password: {session.HasPassword}, Full: {session.IsFull}");
+
+    // Access custom metadata (set via SessionSettings.SetCustomData on host)
+    var gameMode = session.GetMetadata<string>("gameMode", "Unknown");
+}
+
+private void OnSessionUpdated(DiscoveredSession session) {
+    // Player count changed, metadata updated, etc.
+}
+
+private void OnSessionLost(DiscoveredSession session) {
+    // Session no longer responding (timed out)
+}
+
+private void OnScanComplete() {
+    Debug.Log($"Scan complete. Found {lanDiscovery.DiscoveredSessions.Count} sessions");
+}
+```
+
+**Filtering & Joining Sessions:**
+```csharp
+public void JoinSelectedSession(DiscoveredSession session, string password = null) {
+    if (session == null) return;
+
+    var config = Resources.Load<NetworkConfig>("Network Config");
+
+    // Check compatibility
+    if (!session.IsCompatible(config.protocolVersion)) {
+        Debug.LogWarning("Version mismatch!");
+        return;
+    }
+
+    if (session.IsFull) {
+        Debug.LogWarning("Session is full!");
+        return;
+    }
+
+    if (session.HasPassword && string.IsNullOrEmpty(password)) {
+        // Show password input dialog
+        return;
+    }
+
+    networkService.JoinSession(session, password);
+}
+```
+
+#### **8. Connection Status Codes**
 | Status | Meaning |
 | :--- | :--- |
 | `Disconnected` | Not connected |
@@ -394,10 +493,23 @@ status.IsRejection();   // true if rejection reason (ServerFull, etc.)
 status.ToMessage();     // User-friendly error message
 ```
 
-#### **7. Custom Connection Handler**
+#### **9. Custom Connection Handler**
 Extend `UNetcodeConnectionHandler` to customize behavior:
 ```csharp
-public class MyGameHandler : UNetcodeConnectionHandler {
+public class MyConnectionHandler : UNetcodeConnectionHandler {
+    [Header("Game Settings")]
+    [SerializeField] private int defaultCharacter = 0;
+
+    // --- Factory methods (return custom implementations) ---
+    protected override SessionManager CreateSessionManager(NetworkConfig config) {
+        return new MySessionManager(config);
+    }
+
+    protected override LANDiscoveryService CreateLANDiscoveryService(
+        NetworkConfig config, ISessionManager sessionManager) {
+        return new MyLANDiscoveryService(config, sessionManager, GetTransportPort);
+    }
+
     // --- Server-side callbacks ---
     protected override void OnServerStartedCustom() {
         Debug.Log("Server ready for connections");
@@ -415,12 +527,12 @@ public class MyGameHandler : UNetcodeConnectionHandler {
     // --- Client-side callbacks ---
     protected override void OnLocalClientConnected() {
         Debug.Log("Connected to server!");
-        // Load game scene, show game UI, etc.
+        // Load game scene, show lobby UI, etc.
     }
 
     protected override void OnLocalClientDisconnected() {
         Debug.Log("Disconnected from server");
-        // Return to menu, show reconnect dialog, etc.
+        // Return to main menu, show reconnect dialog, etc.
     }
 
     // --- Validation callbacks ---
@@ -438,13 +550,18 @@ public class MyGameHandler : UNetcodeConnectionHandler {
         NetworkManager.ConnectionApprovalRequest request,
         NetworkManager.ConnectionApprovalResponse response,
         ConnectionPayload payload) {
-        response.Position = GetSpawnPoint(payload.playerName);
-        response.Rotation = Quaternion.identity;
+
+        base.ConfigurePlayerSpawn(request, response, payload);
+
+        var customData = payload.GetCustomData<MyJoinData>();
+        if (customData != null) {
+            response.Position = GetTeamSpawnPoint(customData.teamIndex);
+        }
     }
 }
 ```
 
-#### **8. Connection Payload (Custom Join Data)**
+#### **10. Connection Payload (Custom Join Data)**
 Send custom data when connecting:
 ```csharp
 [Serializable]
@@ -454,66 +571,122 @@ public class MyJoinData {
     public int teamIndex;
 }
 
-public class MyGameHandler : UNetcodeConnectionHandler {
+public class MyConnectionHandler : UNetcodeConnectionHandler {
+    [SerializeField] private int defaultCharacter = 0;
+    [SerializeField] private string defaultSkin = "default";
+
     // Client: Send custom data when joining
     protected override ConnectionPayload CreateClientPayload(string password) {
         var payload = base.CreateClientPayload(password);
         payload.SetCustomData(new MyJoinData {
-            selectedCharacter = 2,
-            selectedSkin = "warrior_blue",
+            selectedCharacter = defaultCharacter,
+            selectedSkin = defaultSkin,
             teamIndex = 0
         });
         return payload;
     }
 
-    // Server: Read custom data on approval
-    protected override void OnConnectionApproved(ulong clientId, ConnectionPayload payload) {
-        var joinData = payload.GetCustomData<MyJoinData>();
+    // Server: Read custom data on client join
+    protected override void OnClientJoined(ulong clientId) {
+        base.OnClientJoined(clientId);
+
+        var payload = GetClientPayload(clientId);
+        var joinData = payload?.GetCustomData<MyJoinData>();
+
         if (joinData != null) {
-            SpawnCharacter(clientId, joinData.selectedCharacter, joinData.selectedSkin);
-            AssignTeam(clientId, joinData.teamIndex);
+            Debug.Log($"Client {clientId} selected character {joinData.selectedCharacter}");
+            // Spawn their character, assign team, etc.
         }
     }
 }
 ```
 
-#### **9. Custom Session & Validation**
+#### **11. Custom Session & Validation**
 Extend session management for game-specific logic:
 ```csharp
 // Custom session info with game-specific properties
 public class MySessionInfo : SessionInfo {
     public string GameMode { get; private set; }
+    public string MapName { get; private set; }
 
     public MySessionInfo(SessionSettings settings, int protocolVersion)
         : base(settings, protocolVersion) { }
 
     protected override void OnCreated(SessionSettings settings) {
-        GameMode = settings.GetCustomData("gameMode", "Default");
+        GameMode = settings.GetCustomData("gameMode", "Deathmatch");
+        MapName = settings.GetCustomData("mapName", "Default");
     }
 }
 
 // Custom session manager with validation
 public class MySessionManager : SessionManager {
+    public MySessionManager(NetworkConfig config) : base(config) { }
+
     protected override SessionInfo CreateSessionInfo(SessionSettings settings, int protocolVersion) {
         return new MySessionInfo(settings, protocolVersion);
     }
 
     protected override bool ValidateCustom(ConnectionPayload payload, out ConnectionStatus rejectionReason) {
-        // Add custom validation (e.g., check if player is banned)
-        var joinData = payload.GetCustomData<MyJoinData>();
-        if (joinData?.teamIndex < 0) {
-            rejectionReason = ConnectionStatus.GenericFailure;
-            return false;
-        }
         rejectionReason = ConnectionStatus.Success;
+
+        var joinData = payload.GetCustomData<MyJoinData>();
+        if (joinData != null) {
+            // Example: Validate character selection
+            if (joinData.selectedCharacter < 0 || joinData.selectedCharacter > 10) {
+                rejectionReason = ConnectionStatus.GenericFailure;
+                return false;
+            }
+        }
+
         return true;
     }
 }
 
-// Register custom manager
-public class MyGameHandler : UNetcodeConnectionHandler {
+// Register in your connection handler
+public class MyConnectionHandler : UNetcodeConnectionHandler {
     protected override SessionManager CreateSessionManager(NetworkConfig config) {
         return new MySessionManager(config);
+    }
+}
+```
+
+#### **12. Custom LAN Discovery Data**
+Broadcast game-specific data for session browser:
+```csharp
+[Serializable]
+public class MyDiscoveryData {
+    public string gameMode;
+    public string mapName;
+    public bool isRanked;
+}
+
+public class MyLANDiscoveryService : LANDiscoveryService {
+    public MyLANDiscoveryService(NetworkConfig config, ISessionManager sessionManager, Func<ushort> getTransportPort)
+        : base(config, sessionManager, getTransportPort) { }
+
+    // Server: Add custom data to broadcast
+    protected override DiscoveryResponseData CreateResponseData(SessionInfo session) {
+        var response = base.CreateResponseData(session);
+
+        if (session is MySessionInfo mySession) {
+            response.SetCustomData(new MyDiscoveryData {
+                gameMode = mySession.GameMode,
+                mapName = mySession.MapName,
+                isRanked = false
+            });
+        }
+
+        return response;
+    }
+
+    // Client: Parse custom data when session discovered
+    protected override void OnSessionDiscoveredInternal(DiscoveredSession session, DiscoveryResponseData response) {
+        var customData = response.GetCustomData<MyDiscoveryData>();
+        if (customData != null) {
+            session.SetMetadata("gameMode", customData.gameMode);
+            session.SetMetadata("mapName", customData.mapName);
+            session.SetMetadata("isRanked", customData.isRanked);
+        }
     }
 }
 ```
