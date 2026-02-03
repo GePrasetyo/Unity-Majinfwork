@@ -10,6 +10,30 @@ The Majingari Framework is a modular foundation designed to streamline game init
 
 ---
 
+## 📑 Table of Contents
+
+- [Architecture Overview](#️-architecture-overview-ue-comparison)
+- [Getting Started](#-getting-started)
+- [Core Systems](#-core-systems)
+  - [World Configuration & Game Modes](#1-world-configuration--game-modes)
+  - [Game Mode Manager](#2-game-mode-manager)
+  - [Player System](#3-player-system)
+- [Advanced Features](#️-advanced-features)
+  - [Cross-Scene References](#-cross-scene-references)
+  - [Level Streaming & Loading](#-level-streaming--loading)
+  - [HUD & UI Widget System](#️-hud--ui-widget-system)
+  - [Networking System](#--networking-system)
+    - [Hosting a Session](#3-hosting-a-session)
+    - [Joining a Session](#4-joining-a-session)
+    - [LAN Discovery & Matchmaking](#5-lan-discovery--matchmaking)
+    - [Custom Connection Handler](#7-custom-connection-handler)
+  - [Save System](#-save-system)
+  - [Localization (Legacy)](#-localization-legacy)
+  - [Utilities](#-utilities)
+- [License](#-license)
+
+---
+
 ## 🏛️ Architecture Overview (UE Comparison)
 
 The framework adopts Unreal's decoupled architecture, separating data, rules, and physical representations.
@@ -221,51 +245,278 @@ HUD.ClearStack();
 
 ###  🌐 Networking System
 
-The network system is built on **Unity Netcode** and managed via the `UNetcodeConnectionHandler`. It handles everything from initial handshake to session discovery.
+The network system is built on **Unity Netcode for GameObjects** with a layered architecture:
 
-#### **1. Network Configuration**
-Global network parameters are defined in the **NetworkConfig** ScriptableObject:
-*   **Protocol Version:** Ensures only compatible clients can connect.
-*   **LAN Discovery:** Configurable UDP ports (default: 47777), broadcast intervals, and scan timeouts.
-*   **Connection Constraints:** Set maximum payload sizes and connection timeouts.
+```
+UNetcodeConnectionHandler (Main Entry Point)
+  ├── SessionManager (Session lifecycle)
+  ├── LANDiscoveryService (Local network discovery)
+  ├── ConnectionApprovalValidator (Join validation)
+  └── NetworkManager (Unity Netcode)
+```
 
-#### **2. Connection & Approval Lifecycle**
-The framework uses a surgical **Approval Check** system to validate incoming connections before they are allowed into the world.
+#### **1. Initialization & Service Access**
+After calling `UNetcodeConnectionHandler.Initialize()`, services are auto-registered via ServiceLocator:
+```csharp
+var networkService = ServiceLocator.Resolve<INetworkService>();
+var sessionManager = ServiceLocator.Resolve<ISessionManager>();
+var lanDiscovery = ServiceLocator.Resolve<ILANDiscoveryService>();
+```
 
-*   **ConnectionPayload:** Clients send a payload containing their GUID, player name, and protocol version.
-*   **Validation:** The `ConnectionApprovalValidator` checks for server capacity, password matches, and protocol compatibility.
-*   **Custom Data:** You can extend `ConnectionPayload` with your own JSON data (e.g., selected character skins or team IDs).
+#### **2. Network Configuration**
+Create via: **Right-click > Create > MFramework/Config Object/Network Config**
 
-#### **3. LAN Discovery Service**
-The `LANDiscoveryService` allows players to find local games without manual IP entry.
-*   **Automatic Scanning:** Searches for active `DiscoveryResponseData` on the local network.
-*   **Session Metadata:** Servers can broadcast custom session info like current map name or game mode.
-*   **Compatibility Check:** Automatically filters out sessions with mismatched protocol versions.
+| Field | Default | Description |
+| :--- | :--- | :--- |
+| `protocolVersion` | 1 | Increment for breaking network changes |
+| `discoveryPort` | 47777 | UDP port for LAN discovery |
+| `discoveryTimeout` | 5f | Scan duration in seconds |
+| `broadcastInterval` | 1f | Broadcast frequency in seconds |
+| `sessionStaleTimeout` | 3f | Session timeout threshold |
+| `maxConnectPayload` | 256 | Max connection data size in bytes |
+| `connectionTimeout` | 10f | Connection attempt timeout |
+| `defaultMaxPlayers` | 4 | Default session capacity |
 
-#### **4. Custom Connection Handling**
-To implement your own logic, extend the `UNetcodeConnectionHandler`:
+#### **3. Hosting a Session**
+```csharp
+// Create session settings
+var settings = SessionSettings.Create(
+    name: "My Game Session",
+    maxPlayers: 4,
+    password: null,  // null = no password
+    mapIndex: 0
+);
+
+// Add custom metadata (broadcasted to LAN discovery)
+settings.SetCustomData("gameMode", "TeamDeathmatch");
+settings.SetCustomData("difficulty", 2);
+
+// Start hosting
+networkService.HostSession(settings);
+
+// Check host status
+if (networkService.IsHost) {
+    var session = networkService.CurrentSession;
+    Debug.Log($"Hosting: {session.SessionName} ({session.CurrentPlayerCount}/{session.MaxPlayers})");
+}
+```
+
+#### **4. Joining a Session**
+```csharp
+// Option A: Join by IP address
+networkService.JoinSession(
+    address: "192.168.1.100",
+    port: 7777,
+    password: null
+);
+
+// Option B: Join a discovered session (from LAN scan)
+networkService.JoinSession(discoveredSession, password: "secret");
+
+// Monitor connection result
+networkService.OnStatusChanged += (status) => {
+    switch (status) {
+        case ConnectionStatus.Connecting:
+            Debug.Log("Connecting...");
+            break;
+        case ConnectionStatus.Connected:
+            Debug.Log("Successfully joined!");
+            break;
+        case ConnectionStatus.Hosting:
+            Debug.Log("Server started!");
+            break;
+        case ConnectionStatus.Disconnected:
+            Debug.Log("Disconnected");
+            break;
+        default:
+            if (status.IsRejection())
+                Debug.Log($"Rejected: {status.ToMessage()}");
+            break;
+    }
+};
+```
+
+#### **5. LAN Discovery & Matchmaking**
+```csharp
+var lanDiscovery = ServiceLocator.Resolve<ILANDiscoveryService>();
+
+// Start scanning (runs for discoveryTimeout duration)
+lanDiscovery.StartScan();
+
+// Subscribe to discovery events
+lanDiscovery.OnSessionDiscovered += (session) => {
+    Debug.Log($"Found: {session.SessionName} @ {session.Address}:{session.Port}");
+    Debug.Log($"Players: {session.CurrentPlayers}/{session.MaxPlayers}");
+    Debug.Log($"Password protected: {session.HasPassword}");
+
+    // Access custom metadata
+    var gameMode = session.GetMetadata<string>("gameMode", "Unknown");
+};
+
+lanDiscovery.OnSessionUpdated += (session) => {
+    // Player count changed, etc.
+};
+
+lanDiscovery.OnSessionLost += (session) => {
+    // Session no longer responding
+};
+
+lanDiscovery.OnScanComplete += () => {
+    Debug.Log($"Scan complete. Found {lanDiscovery.DiscoveredSessions.Count} sessions");
+};
+
+// Filter joinable sessions
+var joinable = lanDiscovery.DiscoveredSessions
+    .Where(s => s.IsCompatible(protocolVersion))
+    .Where(s => !s.IsFull)
+    .Where(s => !s.HasPassword || userHasPassword)
+    .ToList();
+```
+
+#### **6. Connection Status Codes**
+| Status | Meaning |
+| :--- | :--- |
+| `Disconnected` | Not connected |
+| `Connecting` | Connection in progress |
+| `Connected` | Successfully joined as client |
+| `Hosting` | Running as server/host |
+| `ServerFull` | Session has reached `maxPlayers` |
+| `IncorrectPassword` | Wrong or missing password |
+| `ProtocolMismatch` | Client/server version mismatch |
+| `InvalidPlayerName` | Player name empty or too long |
+| `Timeout` | Connection attempt timed out |
+| `Banned` | Client is banned from session |
+
+**Helper methods:**
+```csharp
+status.IsConnected();   // true if Connected or Hosting
+status.IsRejection();   // true if rejection reason (ServerFull, etc.)
+status.ToMessage();     // User-friendly error message
+```
+
+#### **7. Custom Connection Handler**
+Extend `UNetcodeConnectionHandler` to customize behavior:
 ```csharp
 public class MyGameHandler : UNetcodeConnectionHandler {
-    protected override void OnLocalClientConnected() {
-        // Handle logic when you successfully join a server
+    // --- Server-side callbacks ---
+    protected override void OnServerStartedCustom() {
+        Debug.Log("Server ready for connections");
     }
 
-    protected override void ConfigurePlayerSpawn(ConnectionApprovalRequest request, ConnectionApprovalResponse response, ConnectionPayload payload) {
-        // Custom spawn positioning based on payload data
-        response.Position = new Vector3(10, 0, 10); 
+    protected override void OnClientJoined(ulong clientId) {
+        var payload = GetClientPayload(clientId);
+        Debug.Log($"Player {payload.playerName} joined");
+    }
+
+    protected override void OnClientLeft(ulong clientId) {
+        Debug.Log($"Client {clientId} disconnected");
+    }
+
+    // --- Client-side callbacks ---
+    protected override void OnLocalClientConnected() {
+        Debug.Log("Connected to server!");
+        // Load game scene, show game UI, etc.
+    }
+
+    protected override void OnLocalClientDisconnected() {
+        Debug.Log("Disconnected from server");
+        // Return to menu, show reconnect dialog, etc.
+    }
+
+    // --- Validation callbacks ---
+    protected override void OnConnectionApproved(ulong clientId, ConnectionPayload payload) {
+        var customData = payload.GetCustomData<MyJoinData>();
+        // Setup player based on custom data
+    }
+
+    protected override void OnConnectionRejected(ulong clientId, ConnectionStatus reason, ConnectionPayload payload) {
+        Debug.LogWarning($"Connection rejected: {reason.ToMessage()}");
+    }
+
+    // --- Spawn customization ---
+    protected override void ConfigurePlayerSpawn(
+        NetworkManager.ConnectionApprovalRequest request,
+        NetworkManager.ConnectionApprovalResponse response,
+        ConnectionPayload payload) {
+        response.Position = GetSpawnPoint(payload.playerName);
+        response.Rotation = Quaternion.identity;
     }
 }
 ```
 
-####  🛠️ Connection Status Codes
-The framework provides detailed feedback for connection failures via the `ConnectionStatus` enum:
+#### **8. Connection Payload (Custom Join Data)**
+Send custom data when connecting:
+```csharp
+[Serializable]
+public class MyJoinData {
+    public int selectedCharacter;
+    public string selectedSkin;
+    public int teamIndex;
+}
 
-| Status | Meaning |
-| :--- | :--- |
-| `Success` | Connection established. |
-| `ServerFull` | The session has reached `maxPlayers`. |
-| `ProtocolMismatch` | Client and Server version numbers do not match. |
-| `IncorrectPassword` | The session requires a password that was not provided correctly. |
+public class MyGameHandler : UNetcodeConnectionHandler {
+    // Client: Send custom data when joining
+    protected override ConnectionPayload CreateClientPayload(string password) {
+        var payload = base.CreateClientPayload(password);
+        payload.SetCustomData(new MyJoinData {
+            selectedCharacter = 2,
+            selectedSkin = "warrior_blue",
+            teamIndex = 0
+        });
+        return payload;
+    }
+
+    // Server: Read custom data on approval
+    protected override void OnConnectionApproved(ulong clientId, ConnectionPayload payload) {
+        var joinData = payload.GetCustomData<MyJoinData>();
+        if (joinData != null) {
+            SpawnCharacter(clientId, joinData.selectedCharacter, joinData.selectedSkin);
+            AssignTeam(clientId, joinData.teamIndex);
+        }
+    }
+}
+```
+
+#### **9. Custom Session & Validation**
+Extend session management for game-specific logic:
+```csharp
+// Custom session info with game-specific properties
+public class MySessionInfo : SessionInfo {
+    public string GameMode { get; private set; }
+
+    public MySessionInfo(SessionSettings settings, int protocolVersion)
+        : base(settings, protocolVersion) { }
+
+    protected override void OnCreated(SessionSettings settings) {
+        GameMode = settings.GetCustomData("gameMode", "Default");
+    }
+}
+
+// Custom session manager with validation
+public class MySessionManager : SessionManager {
+    protected override SessionInfo CreateSessionInfo(SessionSettings settings, int protocolVersion) {
+        return new MySessionInfo(settings, protocolVersion);
+    }
+
+    protected override bool ValidateCustom(ConnectionPayload payload, out ConnectionStatus rejectionReason) {
+        // Add custom validation (e.g., check if player is banned)
+        var joinData = payload.GetCustomData<MyJoinData>();
+        if (joinData?.teamIndex < 0) {
+            rejectionReason = ConnectionStatus.GenericFailure;
+            return false;
+        }
+        rejectionReason = ConnectionStatus.Success;
+        return true;
+    }
+}
+
+// Register custom manager
+public class MyGameHandler : UNetcodeConnectionHandler {
+    protected override SessionManager CreateSessionManager(NetworkConfig config) {
+        return new MySessionManager(config);
+    }
+}
+```
 
 
 ### 💾 Save System
@@ -326,8 +577,10 @@ var loadedData = await service.LoadAsync<PlayerProfileData>("PlayerProfile");
 > Use `service.UpdateAllAsync()` to trigger a save on all registered `ISaveListener` objects. This is perfect for "Checkpoints" or auto-save triggers.
 
 
-### **🌍 Localization**
-Easily localize your UI using the integrated localization components:
+### **🌍 Localization (Legacy)**
+
+> **⚠️ Deprecated:** These TextMeshPro-based localizers are for legacy Canvas/uGUI projects only.
+> For UI Toolkit projects, use the localization features in **Majinfwork UI Toolkit Extension** (`com.majingari.ui`) with Unity Localization package instead.
 
 | Component | Description |
 | :--- | :--- |
@@ -336,6 +589,10 @@ Easily localize your UI using the integrated localization components:
 | `LocalizerInputField` | Localizes input field placeholders |
 | `LocalizerValueText` | Localizes text with dynamic value substitution |
 | `LocalizationDropdown` | Pre-built dropdown for language switching at runtime |
+
+**For new projects using UI Toolkit:**
+- Static text: Use UXML `@Table/Key` syntax (most performant)
+- Dynamic text: Use `LabelRef`, `ButtonRef`, etc. with `InitializeLocalization()` + `Arguments`
 
 
 ### 📦 Utilities
