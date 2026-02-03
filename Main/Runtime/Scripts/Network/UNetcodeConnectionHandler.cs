@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
@@ -20,6 +22,12 @@ namespace Majinfwork.Network {
         protected LANDiscoveryService lanDiscovery;
         protected ConnectionApprovalValidator approvalValidator;
         protected bool isInitialized;
+
+        // Async operation tracking
+        protected TaskCompletionSource<ConnectionStatus> pendingHostOperation;
+        protected TaskCompletionSource<ConnectionStatus> pendingJoinOperation;
+        protected TaskCompletionSource<bool> pendingLeaveOperation;
+        protected CancellationTokenRegistration pendingCancellationRegistration;
 
         #region INetworkService Implementation
         public SessionInfo CurrentSession => sessionManager?.CurrentSession;
@@ -115,7 +123,7 @@ namespace Majinfwork.Network {
         protected virtual void OnInitialized() { }
 
         public virtual void Shutdown() {
-            LeaveSession();
+            Disconnect();
 
             lanDiscovery?.StopScan();
             MainThreadDispatcher.Shutdown();
@@ -139,26 +147,7 @@ namespace Majinfwork.Network {
         protected virtual void OnShutdown() { }
         #endregion
 
-        #region Public API
-        public virtual void HostSession(SessionSettings settings) {
-            if (!isInitialized) {
-                Debug.LogError("[UNetcodeConnectionHandler] Not initialized. Call Initialize() first.");
-                return;
-            }
-
-            if (networkManager.IsListening) {
-                Debug.LogWarning("[UNetcodeConnectionHandler] Already connected. Call LeaveSession() first.");
-                return;
-            }
-
-            sessionManager.CreateSession(settings, networkConfig.protocolVersion);
-
-            var payload = CreateHostPayload(settings);
-            networkManager.NetworkConfig.ConnectionData = payload.ToBytes();
-
-            SetStatus(ConnectionStatus.Connecting);
-            networkManager.StartHost();
-        }
+        #region Extension Points (Override these in subclasses)
 
         /// <summary>
         /// Creates the connection payload for the host. Override to add custom data.
@@ -169,28 +158,6 @@ namespace Majinfwork.Network {
                 networkConfig.protocolVersion,
                 settings.password
             );
-        }
-
-        public virtual void JoinSession(string address, ushort port, string password = null) {
-            if (!isInitialized) {
-                Debug.LogError("[UNetcodeConnectionHandler] Not initialized. Call Initialize() first.");
-                return;
-            }
-
-            if (networkManager.IsListening) {
-                Debug.LogWarning("[UNetcodeConnectionHandler] Already connected. Call LeaveSession() first.");
-                return;
-            }
-
-            ConfigureTransport(address, port);
-
-            var payload = CreateClientPayload(password);
-            networkManager.NetworkConfig.ConnectionData = payload.ToBytes();
-
-            SetStatus(ConnectionStatus.Connecting);
-            networkManager.StartClient();
-
-            Debug.Log($"[UNetcodeConnectionHandler] Connecting to {address}:{port}");
         }
 
         /// <summary>
@@ -218,16 +185,138 @@ namespace Majinfwork.Network {
             return PlayerPrefs.GetString("PlayerName", defaultPlayerName);
         }
 
-        public virtual void JoinSession(DiscoveredSession session, string password = null) {
-            if (session == null) {
-                Debug.LogError("[UNetcodeConnectionHandler] Session is null.");
-                return;
+        /// <summary>
+        /// Called before leaving a session. Override for custom cleanup.
+        /// </summary>
+        protected virtual void OnLeavingSession() { }
+
+        #endregion
+
+        #region Public API
+
+        public async Task<ConnectionStatus> HostSessionAsync(SessionSettings settings, CancellationToken cancellationToken = default) {
+            if (!isInitialized) {
+                Debug.LogError("[UNetcodeConnectionHandler] Not initialized. Call Initialize() first.");
+                return ConnectionStatus.GenericFailure;
             }
 
-            JoinSession(session.Address, session.Port, password);
+            if (networkManager.IsListening) {
+                Debug.LogWarning("[UNetcodeConnectionHandler] Already connected. Call LeaveSessionAsync() first.");
+                return ConnectionStatus.GenericFailure;
+            }
+
+            CancelPendingOperations();
+            pendingHostOperation = new TaskCompletionSource<ConnectionStatus>();
+
+            if (cancellationToken.CanBeCanceled) {
+                pendingCancellationRegistration = cancellationToken.Register(() => {
+                    pendingHostOperation?.TrySetResult(ConnectionStatus.Timeout);
+                    Disconnect();
+                });
+            }
+
+            // Start hosting
+            sessionManager.CreateSession(settings, networkConfig.protocolVersion);
+            var payload = CreateHostPayload(settings);
+            networkManager.NetworkConfig.ConnectionData = payload.ToBytes();
+            SetStatus(ConnectionStatus.Connecting);
+            networkManager.StartHost();
+
+            try {
+                if (networkConfig.connectionTimeout > 0) {
+                    var timeoutTask = Task.Delay((int)(networkConfig.connectionTimeout * 1000), cancellationToken);
+                    var completedTask = await Task.WhenAny(pendingHostOperation.Task, timeoutTask);
+
+                    if (completedTask == timeoutTask) {
+                        pendingHostOperation.TrySetResult(ConnectionStatus.Timeout);
+                        Disconnect();
+                    }
+                }
+
+                return await pendingHostOperation.Task;
+            }
+            finally {
+                pendingCancellationRegistration.Dispose();
+                pendingHostOperation = null;
+            }
         }
 
-        public virtual void LeaveSession() {
+        public async Task<ConnectionStatus> JoinSessionAsync(string address, ushort port, string password = null, CancellationToken cancellationToken = default) {
+            if (!isInitialized) {
+                Debug.LogError("[UNetcodeConnectionHandler] Not initialized. Call Initialize() first.");
+                return ConnectionStatus.GenericFailure;
+            }
+
+            if (networkManager.IsListening) {
+                Debug.LogWarning("[UNetcodeConnectionHandler] Already connected. Call LeaveSessionAsync() first.");
+                return ConnectionStatus.GenericFailure;
+            }
+
+            CancelPendingOperations();
+            pendingJoinOperation = new TaskCompletionSource<ConnectionStatus>();
+
+            if (cancellationToken.CanBeCanceled) {
+                pendingCancellationRegistration = cancellationToken.Register(() => {
+                    pendingJoinOperation?.TrySetResult(ConnectionStatus.Timeout);
+                    Disconnect();
+                });
+            }
+
+            // Start joining
+            ConfigureTransport(address, port);
+            var payload = CreateClientPayload(password);
+            networkManager.NetworkConfig.ConnectionData = payload.ToBytes();
+            SetStatus(ConnectionStatus.Connecting);
+            networkManager.StartClient();
+            Debug.Log($"[UNetcodeConnectionHandler] Connecting to {address}:{port}");
+
+            try {
+                if (networkConfig.connectionTimeout > 0) {
+                    var timeoutTask = Task.Delay((int)(networkConfig.connectionTimeout * 1000), cancellationToken);
+                    var completedTask = await Task.WhenAny(pendingJoinOperation.Task, timeoutTask);
+
+                    if (completedTask == timeoutTask) {
+                        pendingJoinOperation.TrySetResult(ConnectionStatus.Timeout);
+                        Disconnect();
+                    }
+                }
+
+                return await pendingJoinOperation.Task;
+            }
+            finally {
+                pendingCancellationRegistration.Dispose();
+                pendingJoinOperation = null;
+            }
+        }
+
+        public Task<ConnectionStatus> JoinSessionAsync(DiscoveredSession session, string password = null, CancellationToken cancellationToken = default) {
+            if (session == null) {
+                Debug.LogError("[UNetcodeConnectionHandler] Session is null.");
+                return Task.FromResult(ConnectionStatus.SessionNotFound);
+            }
+
+            return JoinSessionAsync(session.Address, session.Port, password, cancellationToken);
+        }
+
+        public async Task LeaveSessionAsync() {
+            if (!networkManager.IsListening) return;
+
+            CancelPendingOperations();
+            pendingLeaveOperation = new TaskCompletionSource<bool>();
+
+            Disconnect();
+
+            await Task.Yield();
+
+            pendingLeaveOperation?.TrySetResult(true);
+            pendingLeaveOperation = null;
+        }
+
+        #endregion
+
+        #region Internal Methods
+
+        private void Disconnect() {
             if (!networkManager.IsListening) return;
 
             OnLeavingSession();
@@ -241,13 +330,16 @@ namespace Majinfwork.Network {
             ClearClientData();
             SetStatus(ConnectionStatus.Disconnected);
 
-            Debug.Log("[UNetcodeConnectionHandler] Left session");
+            Debug.Log("[UNetcodeConnectionHandler] Disconnected");
         }
 
-        /// <summary>
-        /// Called before leaving a session. Override for custom cleanup.
-        /// </summary>
-        protected virtual void OnLeavingSession() { }
+        private void CancelPendingOperations() {
+            pendingHostOperation?.TrySetCanceled();
+            pendingJoinOperation?.TrySetCanceled();
+            pendingLeaveOperation?.TrySetCanceled();
+            pendingCancellationRegistration.Dispose();
+        }
+
         #endregion
 
         #region Network Event Handlers
@@ -276,6 +368,9 @@ namespace Majinfwork.Network {
                 lanDiscovery.StartHosting();
             }
 
+            // Complete async host operation
+            pendingHostOperation?.TrySetResult(ConnectionStatus.Hosting);
+
             OnServerStartedCustom();
 
             Debug.Log("[UNetcodeConnectionHandler] Server started");
@@ -295,6 +390,10 @@ namespace Majinfwork.Network {
             }
             else if (clientId == networkManager.LocalClientId) {
                 SetStatus(ConnectionStatus.Connected);
+
+                // Complete async join operation
+                pendingJoinOperation?.TrySetResult(ConnectionStatus.Connected);
+
                 OnLocalClientConnected();
                 Debug.Log("[UNetcodeConnectionHandler] Successfully connected to server");
             }
@@ -328,6 +427,10 @@ namespace Majinfwork.Network {
             }
             else if (clientId == networkManager.LocalClientId) {
                 SetStatus(ConnectionStatus.Disconnected);
+
+                // Complete async join operation with failure (if still pending)
+                pendingJoinOperation?.TrySetResult(ConnectionStatus.GenericFailure);
+
                 OnLocalClientDisconnected();
                 OnClientDisconnected?.Invoke(clientId, ConnectionStatus.GenericFailure);
                 Debug.Log("[UNetcodeConnectionHandler] Disconnected from server");
@@ -395,7 +498,10 @@ namespace Majinfwork.Network {
         /// <summary>
         /// Called when a connection is rejected. Override for custom rejection handling.
         /// </summary>
-        protected virtual void OnConnectionRejected(ulong clientId, ConnectionStatus reason, ConnectionPayload payload) { }
+        protected virtual void OnConnectionRejected(ulong clientId, ConnectionStatus reason, ConnectionPayload payload) {
+            // Complete async join operation with rejection reason
+            pendingJoinOperation?.TrySetResult(reason);
+        }
         #endregion
 
         #region Helper Methods

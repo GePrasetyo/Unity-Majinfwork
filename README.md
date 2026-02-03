@@ -321,15 +321,28 @@ var sessionManager = ServiceLocator.Resolve<ISessionManager>();
 var lanDiscovery = ServiceLocator.Resolve<ILANDiscoveryService>();
 ```
 
+#### **Async API Summary**
+
+The network system provides both **async** (recommended) and **sync** (fire-and-forget) APIs:
+
+| Method | Returns | Description |
+| :--- | :--- | :--- |
+| `HostSessionAsync()` | `Task<ConnectionStatus>` | Waits until hosting starts or fails |
+| `JoinSessionAsync()` | `Task<ConnectionStatus>` | Waits until connected or rejected |
+| `LeaveSessionAsync()` | `Task` | Waits until fully disconnected |
+| `ScanAsync()` | `IAsyncEnumerable<DiscoveryEvent>` | Yields discovery events as they occur |
+| `FindSessionAsync()` | `Task<DiscoveredSession>` | Finds first session matching predicate |
+
+All async methods support `CancellationToken` for timeout/cancellation.
+
 #### **4. Hosting a Session**
 ```csharp
 var networkService = ServiceLocator.Resolve<INetworkService>();
 
-// Create session settings
 var settings = new SessionSettings {
     sessionName = "My Game Session",
     maxPlayers = 4,
-    password = null,  // null = no password
+    password = null,
     mapIndex = 0
 };
 
@@ -337,57 +350,66 @@ var settings = new SessionSettings {
 settings.SetCustomData("gameMode", "TeamDeathmatch");
 settings.SetCustomData("mapName", "Arena");
 
-// Start hosting
-networkService.HostSession(settings);
+// Await until hosting starts or fails
+var status = await networkService.HostSessionAsync(settings);
 
-// Check host status
-if (networkService.IsHost) {
-    var session = networkService.CurrentSession;
-    Debug.Log($"Hosting: {session.SessionName}");
+if (status == ConnectionStatus.Hosting) {
+    Debug.Log($"Hosting: {networkService.CurrentSession.SessionName}");
+    LoadGameScene();
+} else {
+    Debug.LogError($"Failed to host: {status.ToMessage()}");
 }
 ```
 
 #### **5. Joining a Session**
 ```csharp
 var networkService = ServiceLocator.Resolve<INetworkService>();
+var cts = new CancellationTokenSource();
 
-// Option A: Join by IP address
-networkService.JoinSession(
+// Join by IP address
+var status = await networkService.JoinSessionAsync(
     address: "192.168.1.100",
     port: 7777,
-    password: null
+    password: null,
+    cts.Token
 );
 
-// Option B: Join a discovered session (from LAN scan)
-networkService.JoinSession(discoveredSession, password: "secret");
+// Or join a discovered session (from LAN scan)
+var status = await networkService.JoinSessionAsync(
+    session,
+    password: null,
+    cts.Token
+);
 
-// Monitor connection result
-networkService.OnStatusChanged += (status) => {
-    switch (status) {
-        case ConnectionStatus.Connecting:
-            Debug.Log("Connecting...");
-            break;
-        case ConnectionStatus.Connected:
-            Debug.Log("Successfully joined!");
-            break;
-        case ConnectionStatus.Hosting:
-            Debug.Log("Server started!");
-            break;
-        case ConnectionStatus.Disconnected:
-            Debug.Log("Disconnected");
-            break;
-        default:
-            if (status.IsRejection())
-                Debug.Log($"Rejected: {status.ToMessage()}");
-            break;
-    }
-};
+// Handle result
+switch (status) {
+    case ConnectionStatus.Connected:
+        Debug.Log("Successfully joined!");
+        LoadGameScene();
+        break;
+    case ConnectionStatus.ServerFull:
+        ShowError("Server is full");
+        break;
+    case ConnectionStatus.IncorrectPassword:
+        ShowError("Wrong password");
+        break;
+    case ConnectionStatus.Timeout:
+        ShowError("Connection timed out");
+        break;
+    default:
+        ShowError($"Failed: {status.ToMessage()}");
+        break;
+}
+
+// Cancel connection attempt from UI button
+public void OnCancelClicked() => cts.Cancel();
 ```
 
 #### **6. Leaving a Session**
 ```csharp
-// Leave current session (works for both host and client)
-networkService.LeaveSession();
+// Wait until fully disconnected
+await networkService.LeaveSessionAsync();
+LoadMainMenu();
 
 // Full shutdown (unregisters services, call on app quit)
 connectionHandler.Shutdown();
@@ -447,7 +469,11 @@ var session = await lanDiscovery.FindSessionAsync(
 );
 
 if (session != null) {
-    networkService.JoinSession(session);
+    // Use async join for clean flow
+    var status = await networkService.JoinSessionAsync(session, cancellationToken: cts.Token);
+    if (status == ConnectionStatus.Connected) {
+        LoadGameScene();
+    }
 }
 else {
     // No session found - offer to host

@@ -276,7 +276,7 @@ namespace Majinfwork.Network.Samples {
         /// <summary>
         /// Join a selected session. Call when user clicks on a session in the list.
         /// </summary>
-        public void JoinSession(DiscoveredSession session, string password = null) {
+        public async void JoinSession(DiscoveredSession session, string password = null) {
             if (session == null) {
                 Debug.LogWarning("No session selected!");
                 return;
@@ -301,13 +301,36 @@ namespace Majinfwork.Network.Samples {
             }
 
             StopScanning();
-            networkService?.JoinSession(session, password);
+
+            // Show "Connecting..." UI
+            Debug.Log($"Joining {session.SessionName}...");
+
+            var status = await networkService.JoinSessionAsync(session, password);
+
+            switch (status) {
+                case ConnectionStatus.Connected:
+                    Debug.Log("Successfully joined!");
+                    // Load game scene
+                    break;
+                case ConnectionStatus.ServerFull:
+                    Debug.LogWarning("Server became full!");
+                    break;
+                case ConnectionStatus.IncorrectPassword:
+                    Debug.LogWarning("Incorrect password!");
+                    break;
+                case ConnectionStatus.Timeout:
+                    Debug.LogWarning("Connection timed out!");
+                    break;
+                default:
+                    Debug.LogWarning($"Failed to join: {status.ToMessage()}");
+                    break;
+            }
         }
 
         /// <summary>
         /// Host a new session. Call from UI button.
         /// </summary>
-        public void HostSession(string sessionName, int maxPlayers, string password = null) {
+        public async void HostSession(string sessionName, int maxPlayers, string password = null) {
             var settings = new SessionSettings {
                 sessionName = sessionName,
                 maxPlayers = maxPlayers,
@@ -321,7 +344,18 @@ namespace Majinfwork.Network.Samples {
             settings.SetCustomData("isRanked", false);
 
             StopScanning();
-            networkService?.HostSession(settings);
+
+            // Show "Starting server..." UI
+            Debug.Log("Starting server...");
+
+            var status = await networkService.HostSessionAsync(settings);
+
+            if (status == ConnectionStatus.Hosting) {
+                Debug.Log($"Hosting: {networkService.CurrentSession.SessionName}");
+                // Load game scene or show lobby
+            } else {
+                Debug.LogError($"Failed to host: {status.ToMessage()}");
+            }
         }
     }
 
@@ -371,7 +405,16 @@ namespace Majinfwork.Network.Samples {
 
                 if (session != null) {
                     Debug.Log($"Found session: {session.SessionName}. Joining...");
-                    networkService.JoinSession(session);
+
+                    var status = await networkService.JoinSessionAsync(session, cancellationToken: searchCts.Token);
+
+                    if (status == ConnectionStatus.Connected) {
+                        Debug.Log("Successfully joined!");
+                        // Load game scene
+                    } else {
+                        Debug.LogWarning($"Failed to join: {status.ToMessage()}");
+                        // Show error and offer to try again or host
+                    }
                 }
                 else {
                     Debug.Log("No available session found. Consider hosting?");
