@@ -22,7 +22,7 @@ The Majingari Framework is a modular foundation designed to streamline game init
   - [Cross-Scene References](#-cross-scene-references)
   - [Level Streaming & Loading](#-level-streaming--loading)
   - [HUD & UI Widget System](#️-hud--ui-widget-system)
-  - [Networking System](#--networking-system)
+  - [Networking System](#-networking-system)
     - [Hosting a Session](#3-hosting-a-session)
     - [Joining a Session](#4-joining-a-session)
     - [LAN Discovery & Matchmaking](#5-lan-discovery--matchmaking)
