@@ -13,7 +13,7 @@ namespace Majinfwork.World {
         [Tooltip("Automatically spawn player 0 on scene load")]
         [SerializeField] private PlayerController playerControllerPrefab;
         [SerializeField] private PlayerState playerStatePrefab;
-        [SerializeField] private PlayerPawn playerPawnPrefab;
+        [SerializeReference, ClassReference] private PawnProvider pawnProvider;
         [SerializeField] private PlayerInput playerInputPrefab;
         [SerializeField] private HUD hudPrefab;
 
@@ -68,7 +68,8 @@ namespace Majinfwork.World {
             // Instantiate all player components
             var input = Instantiate(playerInputPrefab);
             var state = Instantiate(playerStatePrefab);
-            var pawn = Instantiate(playerPawnPrefab, spawnPos, spawnRot);
+            state.OnCreated();
+            var pawn = pawnProvider.GetPawn(state, spawnPos, spawnRot);
             var hud = hudPrefab != null ? Instantiate(hudPrefab) : null;
             var controller = Instantiate(playerControllerPrefab);
 
@@ -102,7 +103,7 @@ namespace Majinfwork.World {
             if (controller.Input != null) Destroy(controller.Input.gameObject);
             if (controller.State != null) Destroy(controller.State.gameObject);
             if (controller.HUD != null) Destroy(controller.HUD.gameObject);
-            if (controller.CurrentPawn != null) Destroy(controller.CurrentPawn.gameObject);
+            if (controller.CurrentPawn != null) pawnProvider.ReleasePawn(controller.CurrentPawn);
             Destroy(controller.gameObject);
         }
     }
