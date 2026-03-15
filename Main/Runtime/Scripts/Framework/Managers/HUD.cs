@@ -203,7 +203,7 @@ namespace Majinfwork.World {
             var prefab = FindPrefab<T>();
             if (prefab == null) return null;
 
-            var newWidget = Instantiate(prefab);
+            var newWidget = Instantiate(prefab, transform);
             newWidget.Hide(); // Start hidden
             widgetPool[type] = newWidget;
 
