@@ -40,6 +40,34 @@ namespace Majinfwork.World {
 
             instance.worldConfigObject.SetupSceneConfiguration();
 
+            // Check for PSO warmup config
+            var psoConfig = Resources.Load<PSOWarmupConfig>(nameof(PSOWarmupConfig));
+            bool shouldWarmup = psoConfig != null;
+#if UNITY_EDITOR
+            if (shouldWarmup && psoConfig.SkipInEditor)
+                shouldWarmup = false;
+#endif
+            if (shouldWarmup) {
+                RunWarmupThenBoot(instance, psoConfig);
+                return;
+            }
+
+            ContinueBoot(instance);
+        }
+
+        private static async void RunWarmupThenBoot(GameWorldSettings instance, PSOWarmupConfig psoConfig) {
+            try {
+                var runner = new PSOWarmupRunner(psoConfig);
+                await runner.RunAsync();
+            }
+            catch (System.Exception e) {
+                Debug.LogWarning($"[GameWorldSettings] PSO warmup failed, continuing boot: {e.Message}");
+            }
+
+            ContinueBoot(instance);
+        }
+
+        private static void ContinueBoot(GameWorldSettings instance) {
             // Initialize save system (async, consumers await when needed)
             if (instance.enableSaveSystem) {
                 var saveService = new SaveDataService(slotCount: instance.saveSlotCount);
