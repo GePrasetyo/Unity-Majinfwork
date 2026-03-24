@@ -13,6 +13,10 @@ namespace Majinfwork.World {
         [SerializeField] private WorldConfig worldConfigObject;
         [SerializeField] private GameScriptableObject[] preInitializeSciptableObjects = Array.Empty<GameScriptableObject>();
 
+        [Header("Player Setup")]
+        [SerializeField] private PlayerController playerControllerPrefab;
+        [SerializeField] private PlayerState playerStatePrefab;
+
         [Header("Save System")]
         [SerializeField] private bool enableSaveSystem = true;
         [SerializeField] private int saveSlotCount = 1;
@@ -75,6 +79,9 @@ namespace Majinfwork.World {
                 _ = InitializeSaveServiceAsync(saveService, instance.defaultSlotIndex);
             }
 
+            PlayerManager.Initialize(instance.playerControllerPrefab, instance.playerStatePrefab);
+            PlayerManager.SpawnPlayer();
+
             ServiceLocator.Register<GameInstance>(instance.classGameInstance);
             instance.classGameInstance.Construct(instance.worldConfigObject);
 
@@ -103,7 +110,7 @@ namespace Majinfwork.World {
 
         private void OnGameQuit() {
             ServiceLocator.Unregister<GameInstance>(out string message);
-            PlayerManager.Clear();
+            PlayerManager.DestroyAll();
             classGameInstance.Deconstruct();
 
             var saveService = ServiceLocator.Resolve<ISaveDataService>();

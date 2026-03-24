@@ -1,33 +1,61 @@
 namespace Majinfwork.World {
     /// <summary>
-    /// Central controller for a player. Holds references to Input (1:1), State (1:1), HUD (1:1), and CurrentPawn (1:many).
+    /// Central controller for a player. Persists across GameMode transitions.
+    /// Controller + State are persistent. Input, Pawn, HUD are equipped per GameMode.
     /// </summary>
     public class PlayerController : Actor {
-        /// <summary>Player input handler (1:1 relationship)</summary>
+        /// <summary>Player input handler (per GameMode)</summary>
         public PlayerInput Input { get; private set; }
 
-        /// <summary>Player state data (1:1 relationship)</summary>
+        /// <summary>Player state data (persistent)</summary>
         public PlayerState State { get; private set; }
 
-        /// <summary>Player HUD (1:1 relationship)</summary>
+        /// <summary>Player HUD (per GameMode)</summary>
         public HUD HUD { get; private set; }
 
-        /// <summary>Currently possessed pawn (1:many, can switch)</summary>
+        /// <summary>Currently possessed pawn (per GameMode)</summary>
         public PlayerPawn CurrentPawn { get; private set; }
 
         /// <summary>Index of this player (0 = first player)</summary>
         public int PlayerIndex { get; internal set; }
 
         /// <summary>
-        /// Initializes the controller with its components.
-        /// Called by GameModeManager during player spawn.
+        /// Initializes persistent components (Controller + State).
+        /// Called once when the player is first created.
         /// </summary>
-        internal void Initialize(PlayerInput input, PlayerState state, PlayerPawn initialPawn, HUD hud) {
-            Input = input;
+        internal void InitializePersistent(PlayerState state) {
             State = state;
-            HUD = hud;
-            Possess(initialPawn);
         }
+
+        /// <summary>
+        /// Sets up GameMode-owned components (Input, Pawn, HUD).
+        /// Called each time a new GameMode activates.
+        /// </summary>
+        internal void SetupForGameMode(PlayerInput input, PlayerPawn pawn, HUD hud) {
+            Input = input;
+            HUD = hud;
+            Possess(pawn);
+            OnGameModeSetup();
+        }
+
+        /// <summary>
+        /// Cleans up GameMode-owned components. Called when a GameMode deactivates.
+        /// </summary>
+        internal void CleanupFromGameMode() {
+            if (CurrentPawn != null) {
+                OnUnPossess(CurrentPawn);
+                CurrentPawn = null;
+            }
+            Input = null;
+            HUD = null;
+            OnGameModeCleanup();
+        }
+
+        /// <summary>Called after GameMode-owned components are set up. Override for custom setup.</summary>
+        protected virtual void OnGameModeSetup() { }
+
+        /// <summary>Called after GameMode-owned components are cleaned up. Override for custom cleanup.</summary>
+        protected virtual void OnGameModeCleanup() { }
 
         /// <summary>
         /// Possess a pawn, making it the current controlled pawn.

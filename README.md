@@ -34,14 +34,16 @@ The Majingari Framework is a modular foundation designed to streamline game init
 
 The framework adopts Unreal's decoupled architecture, separating data, rules, and physical representations.
 
-| Feature | Unreal Engine Equivalent | Majingari Framework |
-| :--- | :--- | :--- |
-| **Global Manager** | `GameInstance` | `GameInstance` |
-| **Scene Rules** | `GameMode` | `GameModeManager` |
-| **Input & Logic** | `PlayerController` | `PlayerController` |
-| **Physical Body** | `Pawn` | `Pawn` / `PlayerPawn` |
-| **Player Data** | `PlayerState` | `PlayerState` |
-| **Global Data** | `GameState` | `GameState` |
+| Feature | Unreal Engine Equivalent | Majingari Framework | Lifetime |
+| :--- | :--- | :--- | :--- |
+| **Global Manager** | `GameInstance` | `GameInstance` | Application |
+| **Scene Rules** | `GameMode` | `GameModeManager` | Per-Scene |
+| **Input & Logic** | `PlayerController` | `PlayerController` | **Persistent** |
+| **Player Data** | `PlayerState` | `PlayerState` | **Persistent** |
+| **Physical Body** | `Pawn` | `Pawn` / `PlayerPawn` | Per-GameMode |
+| **Input Handler** | `PlayerInput` | `PlayerInput` | Per-GameMode |
+| **HUD** | `HUD` | `HUD` | Per-GameMode |
+| **Global Data** | `GameState` | `GameState` | Per-GameMode |
 
 ---
 
@@ -55,6 +57,7 @@ To begin using the framework, you must initialize the **World Settings**. This a
 1.  **Create Settings:** Using the menu item above will generate a `GameWorldSettings.asset` file in your `Assets/Resources` folder.
 2.  **Assign Game Instance:** Ensure a **Game Instance** (such as the provided `PersistentGameInstance`) is assigned to the settings asset.
 3.  **Attach World Config:** Create and attach a `WorldConfig` ScriptableObject to define how your scenes behave.
+4.  **Assign Player Prefabs:** Set the **PlayerController** and **PlayerState** prefabs. These are created once at boot and persist for the application lifetime.
 
 ---
 
@@ -66,17 +69,27 @@ The framework uses a "Map-to-Mode" architecture. You define a **WorldConfig** as
 *   **Default Game Mode:** A fallback mode used for any scene not explicitly listed.
 
 ### **2. Game Mode Manager**
-The **GameModeManager** is a ScriptableObject that defines the "rules" for a specific scene. It handles the spawning of:
-*   **Managers:** Automatically instantiates your `GameState` and `HUDManager` prefabs.
-*   **Player Components:** Defines prefabs for the **PlayerController**, **PlayerState**, **PlayerPawn**, and **PlayerInput**.
+The **GameModeManager** is a ScriptableObject that defines the "rules" for a specific scene. It manages:
+*   **Managers:** Automatically instantiates your `GameState` prefab.
+*   **Per-GameMode Components:** Spawns **PlayerPawn**, **PlayerInput**, and **HUD** for each player when the mode activates, and cleans them up when it deactivates.
 *   **Camera Logic:** Assigns a **CameraHandler** to manage the player's view.
 
+When transitioning between GameModes, persistent components (Controller + State) survive while per-GameMode components (Pawn, Input, HUD) are destroyed and recreated by the new GameMode.
+
+> [!NOTE]
+> **PlayerController** and **PlayerState** prefabs are defined in **GameWorldSettings** and spawned once at boot. GameModeManager only sets up per-mode components (Pawn, Input, HUD) for players that already exist.
+
 ### **3. Player System**
-The framework decouples player logic into four distinct components for maximum flexibility:
-*   **PlayerController:** The brain that possesses a pawn and links input to state.
+The framework decouples player logic into distinct components with different lifetimes, mirroring Unreal Engine's player architecture:
+
+**Persistent** (survive GameMode transitions, defined in GameWorldSettings):
+*   **PlayerController:** The brain that possesses a pawn and links input to state. Created once, persists for the application lifetime.
+*   **PlayerState:** Stores persistent data for that specific player.
+
+**Per-GameMode** (created/destroyed each GameMode transition, defined in GameModeManager):
 *   **PlayerPawn:** The physical representation of the player in the world.
 *   **PlayerInput:** Handles the Unity Input System actions.
-*   **PlayerState:** Stores persistent data for that specific player.
+*   **HUD:** The player's UI widgets.
 
 #### **PlayerAccessor API**
 Use the **PlayerAccessor** utility for easy access to player components from any script:
@@ -97,17 +110,22 @@ var player2Pawn = PlayerAccessor.GetPlayerPawn<MyPawn>(index: 1);
 int playerCount = PlayerAccessor.GetPlayerCount();
 ```
 
-#### **Possession System**
-PlayerController can possess/unpossess pawns at runtime:
+#### **Possession & GameMode Lifecycle**
+PlayerController persists across GameMode transitions. Override lifecycle hooks to respond:
 ```csharp
 public class MyController : PlayerController {
-    protected override void OnPossess(PlayerPawn pawn) {
-        // Called when possessing a new pawn
+    // Called each time a new GameMode sets up this controller with Input, Pawn, HUD
+    protected override void OnGameModeSetup() {
+        var ship = GetPawn<PlayerShip>();
+        var input = GetInput<MyInput>();
     }
 
-    protected override void OnUnPossess() {
-        // Called when releasing current pawn
-    }
+    // Called when the current GameMode cleans up (Input, Pawn, HUD destroyed)
+    protected override void OnGameModeCleanup() { }
+
+    // Called when possessing/unpossessing a pawn (also works mid-GameMode)
+    protected override void OnPossess(PlayerPawn pawn) { }
+    protected override void OnUnPossess(PlayerPawn pawn) { }
 }
 
 // Switch pawns at runtime
