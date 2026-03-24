@@ -28,6 +28,14 @@ namespace Majinfwork {
         /// </summary>
         public GameModeManager CurrentGameMode => LevelManager?.CurrentGameMode;
 
+        /// <summary>
+        /// Spawns an additional player (Controller + State).
+        /// Use for split-screen or late-joining local players.
+        /// </summary>
+        public PlayerController SpawnPlayer() {
+            return PlayerManager.SpawnPlayer();
+        }
+
         public GameInstance() {
             // Note: Constructor may be called multiple times by Unity serialization.
             // Do NOT put anything here.

@@ -133,6 +133,13 @@ controller.Possess(newPawn);
 controller.UnPossess();
 ```
 
+#### **Spawning Additional Players**
+Player 0 is spawned automatically at boot. For split-screen or late-joining local players, spawn additional players through `GameInstance`:
+```csharp
+// Spawn a new persistent player (Controller + State)
+var newController = GameInstance.Instance<MyGame>().SpawnPlayer();
+```
+
 ---
 
 ## 🛠️ Advanced Features
