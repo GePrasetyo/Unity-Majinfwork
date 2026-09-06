@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.Serialization;
+using UnityEngine;
 
 namespace Majinfwork.SaveSystem {
     /// <summary>
@@ -22,7 +24,7 @@ namespace Majinfwork.SaveSystem {
     /// Extend to add game-specific slot information.
     /// </summary>
     [Serializable]
-    public class SaveSlot {
+    public class SaveSlot : ISerializationCallbackReceiver {
         /// <summary>
         /// The slot index.
         /// </summary>
@@ -42,6 +44,21 @@ namespace Majinfwork.SaveSystem {
         /// When the save was last modified.
         /// </summary>
         public DateTime lastSaveTime;
+
+        /// <summary>
+        /// Tick mirror of <see cref="lastSaveTime"/>. JsonUtility cannot serialize DateTime,
+        /// so the value is copied across in the serialization callbacks below.
+        /// [OptionalField] keeps pre-6.6 BinaryFormatter saves, which predate this field, readable.
+        /// </summary>
+        [SerializeField, OptionalField] private long lastSaveTimeTicks;
+
+        void ISerializationCallbackReceiver.OnBeforeSerialize() {
+            lastSaveTimeTicks = lastSaveTime.Ticks;
+        }
+
+        void ISerializationCallbackReceiver.OnAfterDeserialize() {
+            lastSaveTime = new DateTime(lastSaveTimeTicks, DateTimeKind.Utc);
+        }
 
         /// <summary>
         /// Total playtime in seconds.

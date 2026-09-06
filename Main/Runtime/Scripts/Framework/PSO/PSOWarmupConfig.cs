@@ -1,6 +1,6 @@
 using System;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 
 namespace Majinfwork.World {
     internal sealed class PSOWarmupConfig : ScriptableObject {

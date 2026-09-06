@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.Serialization;
+using UnityEngine;
 
 namespace Majinfwork.SaveSystem {
     /// <summary>
@@ -7,7 +9,7 @@ namespace Majinfwork.SaveSystem {
     /// Stored as a single file that tracks all save slots.
     /// </summary>
     [Serializable]
-    public class SaveContainer {
+    public class SaveContainer : ISerializationCallbackReceiver {
         /// <summary>
         /// File name for the container (without extension).
         /// </summary>
@@ -27,6 +29,21 @@ namespace Majinfwork.SaveSystem {
         /// When the container was last modified.
         /// </summary>
         public DateTime lastModified;
+
+        /// <summary>
+        /// Tick mirror of <see cref="lastModified"/>. JsonUtility cannot serialize DateTime,
+        /// so the value is copied across in the serialization callbacks below.
+        /// [OptionalField] keeps pre-6.6 BinaryFormatter saves, which predate this field, readable.
+        /// </summary>
+        [SerializeField, OptionalField] private long lastModifiedTicks;
+
+        void ISerializationCallbackReceiver.OnBeforeSerialize() {
+            lastModifiedTicks = lastModified.Ticks;
+        }
+
+        void ISerializationCallbackReceiver.OnAfterDeserialize() {
+            lastModified = new DateTime(lastModifiedTicks, DateTimeKind.Utc);
+        }
 
         /// <summary>
         /// Creates an empty container.

@@ -504,7 +504,7 @@ namespace Majinfwork.Network.Samples {
             }
 
             if (connectionHandler == null) {
-                connectionHandler = FindObjectOfType<UNetcodeConnectionHandler>();
+                connectionHandler = FindAnyObjectByType<UNetcodeConnectionHandler>();
             }
 
             if (connectionHandler != null && networkConfig != null) {

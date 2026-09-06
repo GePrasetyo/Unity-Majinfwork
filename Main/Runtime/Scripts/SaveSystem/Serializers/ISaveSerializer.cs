@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 
 namespace Majinfwork.SaveSystem {
@@ -17,8 +18,15 @@ namespace Majinfwork.SaveSystem {
         void Serialize<T>(Stream stream, T data) where T : class;
 
         /// <summary>
-        /// Deserializes data from a stream.
+        /// Deserializes data from a stream using a compile-time type.
         /// </summary>
         T Deserialize<T>(Stream stream) where T : class;
+
+        /// <summary>
+        /// Deserializes data from a stream using a runtime type. Required when the caller only
+        /// knows the concrete type at runtime - deserializing into an abstract base such as
+        /// SaveData cannot work through the generic overload.
+        /// </summary>
+        object Deserialize(Stream stream, Type type);
     }
 }

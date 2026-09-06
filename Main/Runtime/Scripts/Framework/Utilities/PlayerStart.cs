@@ -11,7 +11,7 @@ namespace Majinfwork {
         public int PlayerIndex => playerIndex;
 
         public static PlayerStart FindForPlayer(int index) {
-            var allStarts = FindObjectsByType<PlayerStart>(FindObjectsSortMode.None);
+            var allStarts = FindObjectsByType<PlayerStart>();
 
             // First try to find exact match
             foreach (var start in allStarts) {

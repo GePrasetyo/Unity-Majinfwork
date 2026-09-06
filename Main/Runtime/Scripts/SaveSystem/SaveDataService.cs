@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Assemblies;
 
 namespace Majinfwork.SaveSystem {
     /// <summary>
@@ -333,7 +334,7 @@ namespace Majinfwork.SaveSystem {
                     // Try to deserialize
                     await Task.Run(() => {
                         using (var stream = File.OpenRead(filePath)) {
-                            serializer.Deserialize<SaveData>(stream);
+                            serializer.Deserialize(stream, type);
                         }
                     }, cancellationToken).ConfigureAwait(false);
                 }
@@ -450,9 +451,9 @@ namespace Majinfwork.SaveSystem {
             if (cachedSaveDataTypes != null) return cachedSaveDataTypes;
 
             var result = new List<Type>();
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var assemblies = CurrentAssemblies.GetLoadedAssemblies();
 
-            for (int i = 0; i < assemblies.Length; i++) {
+            for (int i = 0; i < assemblies.Count; i++) {
                 var assembly = assemblies[i];
 
                 // Skip system and Unity assemblies for performance
@@ -512,7 +513,9 @@ namespace Majinfwork.SaveSystem {
                     try {
                         var loaded = await Task.Run(() => {
                             using (var stream = File.OpenRead(filePath)) {
-                                return serializer.Deserialize<SaveData>(stream);
+                                // Pass the concrete type: the payload cannot be materialised
+                                // through the abstract SaveData base.
+                                return serializer.Deserialize(stream, type) as SaveData;
                             }
                         }, cancellationToken).ConfigureAwait(false);
 

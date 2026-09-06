@@ -20,8 +20,10 @@ namespace Majinfwork.World {
         [Tooltip("GameMode used when a scene has no specific GameMode configured. Addressable, loaded on demand.")]
         [SerializeField] private AssetReferenceT<GameModeManager> defaultGameMode;
 
-        public Dictionary<string, WorldAssetConfig> MapConfigList = new Dictionary<string, WorldAssetConfig>();
-        public Dictionary<string, AddressableSceneHandler> levelStreamDictionary = new Dictionary<string, AddressableSceneHandler>();
+        // Runtime lookup caches, rebuilt from mapList/levelStreamCollection in SetupSceneConfiguration().
+        // Unity 6.6 can serialize dictionaries, so mark these explicitly non-serialized.
+        [NonSerialized] public Dictionary<string, WorldAssetConfig> MapConfigList = new Dictionary<string, WorldAssetConfig>();
+        [NonSerialized] public Dictionary<string, AddressableSceneHandler> levelStreamDictionary = new Dictionary<string, AddressableSceneHandler>();
 
         [SerializeReference, ClassReference] private LoadingStreamer loadingHandler;
 

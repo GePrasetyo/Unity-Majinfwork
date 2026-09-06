@@ -3,16 +3,16 @@
   "displayName": "Majingari Framework",
   "version": "1.1.0",
   "description": "Majingari Framework.",
-  "unity": "6000.3",
-  "unityRelease": "1f1",
+  "unity": "6000.6",
+  "unityRelease": "0f1",
   "documentationUrl": "https://github.com/GePrasetyo/Unity-Majinfwork/wiki/Documentation",
   "changelogUrl": "https://github.com/GePrasetyo/Unity-Majinfwork/wiki/Changelog",
   "licensesUrl": "https://github.com/GePrasetyo/Unity-Majinfwork/blob/main/LICENSE",
   "dependencies": {
-    "com.unity.addressables": "1.21.17",
-    "com.unity.netcode.gameobjects": "1.6.0",
-    "com.unity.localization": "1.5.9",
-    "com.unity.inputsystem": "1.17.0"
+    "com.unity.addressables": "2.11.2",
+    "com.unity.netcode.gameobjects": "2.13.2",
+    "com.unity.localization": "1.5.12",
+    "com.unity.inputsystem": "1.20.0"
   },
   "author": {
     "name": "Dhimas Prasetyo",

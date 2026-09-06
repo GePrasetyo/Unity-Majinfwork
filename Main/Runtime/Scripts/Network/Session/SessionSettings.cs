@@ -16,7 +16,7 @@ namespace Majinfwork.Network {
         /// Custom key-value data that can be extended by developers.
         /// This data is NOT automatically serialized over network - use for local configuration only.
         /// </summary>
-        public Dictionary<string, object> CustomData;
+        [NonSerialized] public Dictionary<string, object> CustomData;
 
         public bool HasPassword => !string.IsNullOrEmpty(password);
 

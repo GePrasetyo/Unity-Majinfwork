@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using UnityEngine.Assemblies;
 
 namespace Majinfwork.Settings {
     /// <summary>
@@ -17,9 +18,9 @@ namespace Majinfwork.Settings {
             if (cachedTypes != null) return cachedTypes;
 
             var result = new List<Type>();
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var assemblies = CurrentAssemblies.GetLoadedAssemblies();
 
-            for (int i = 0; i < assemblies.Length; i++) {
+            for (int i = 0; i < assemblies.Count; i++) {
                 var assemblyName = assemblies[i].GetName().Name;
 
                 if (assemblyName.StartsWith("System") ||

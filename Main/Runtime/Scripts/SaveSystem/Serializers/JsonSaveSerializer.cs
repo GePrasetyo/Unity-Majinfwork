@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text;
 using UnityEngine;
@@ -30,9 +31,13 @@ namespace Majinfwork.SaveSystem {
         }
 
         public T Deserialize<T>(Stream stream) where T : class {
+            return (T)Deserialize(stream, typeof(T));
+        }
+
+        public object Deserialize(Stream stream, Type type) {
             using (var reader = new StreamReader(stream, encoding)) {
                 var json = reader.ReadToEnd();
-                return JsonUtility.FromJson<T>(json);
+                return JsonUtility.FromJson(json, type);
             }
         }
     }
@@ -61,10 +66,14 @@ namespace Majinfwork.SaveSystem {
         }
 
         public T Deserialize<T>(Stream stream) where T : class {
+            return (T)Deserialize(stream, typeof(T));
+        }
+
+        public object Deserialize(Stream stream, Type type) {
             using (var gzip = new System.IO.Compression.GZipStream(stream, System.IO.Compression.CompressionMode.Decompress))
             using (var reader = new StreamReader(gzip, encoding)) {
                 var json = reader.ReadToEnd();
-                return JsonUtility.FromJson<T>(json);
+                return JsonUtility.FromJson(json, type);
             }
         }
     }
