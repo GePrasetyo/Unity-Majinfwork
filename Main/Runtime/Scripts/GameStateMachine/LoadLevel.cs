@@ -12,17 +12,13 @@ namespace Majinfwork {
         [SerializeField] private SceneReference map;
         public StateTransition onComplete;
 
-        public override void Begin() {
-            LoadSceneAsync();
+        public override void Begin(StateContext ctx) {
+            LoadSceneAsync(ctx);
         }
 
-        public override void Tick() {
-        }
-
-        public override void End() {
-        }
-
-        private async void LoadSceneAsync() {
+        // The exit is requested after awaits, so the context is captured rather
+        // than read from StateContext.Current, which is only valid synchronously.
+        private async void LoadSceneAsync(StateContext ctx) {
             var loadingStreamer = ServiceLocator.Resolve<LoadingStreamer>();
             var levelManager = ServiceLocator.Resolve<LevelManager>();
 
@@ -44,7 +40,7 @@ namespace Majinfwork {
                 await loadingStreamer.StopLoadingAsync();
             }
 
-            TriggerExit(onComplete);
+            ctx.Exit(onComplete);
         }
     }
 }

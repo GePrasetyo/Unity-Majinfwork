@@ -13,17 +13,13 @@ namespace Majinfwork {
         public StateTransition onComplete;
         public StateTransition onFailed;
 
-        public override void Begin() {
-            LoadSceneAsync();
+        public override void Begin(StateContext ctx) {
+            LoadSceneAsync(ctx);
         }
 
-        public override void Tick() {
-        }
-
-        public override void End() {
-        }
-
-        private async void LoadSceneAsync() {
+        // The exit is requested after awaits, so the context is captured rather
+        // than read from StateContext.Current, which is only valid synchronously.
+        private async void LoadSceneAsync(StateContext ctx) {
             var loadingStreamer = ServiceLocator.Resolve<LoadingStreamer>();
 
             // Fade in loading screen
@@ -41,11 +37,11 @@ namespace Majinfwork {
             }
 
             if (handle.Status == AsyncOperationStatus.Succeeded) {
-                TriggerExit(onComplete);
+                ctx.Exit(onComplete);
             }
             else {
                 Debug.LogError($"Failed to load addressable scene: {sceneAddressable.RuntimeKey}");
-                TriggerExit(onFailed);
+                ctx.Exit(onFailed);
             }
         }
     }
