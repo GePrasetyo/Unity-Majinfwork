@@ -166,6 +166,23 @@ await GameInstance.Instance.LevelManager.LoadLevelAsync("GameplayScene");
 if (GameInstance.Instance.LevelManager.IsLoading) { /* ... */ }
 ```
 
+#### **LevelStreamer (Additive Addressable Scenes)**
+`LevelStreamer` streams Addressable scenes in and out additively, on top of the loaded level. Each scene is an `AddressableSceneHandler` (in code, or listed in the World Config's level stream collection):
+```csharp
+var streamer = ServiceLocator.Resolve<LevelStreamer>();
+var environment = new AddressableSceneHandler { sceneAddressable = environmentReference };
+
+Scene scene = await streamer.LoadAddressableSceneAsync(environment);   // invalid Scene if it failed
+if (environment.IsLoaded) { /* environment.Scene, environment.Status */ }
+
+await streamer.UnloadAddressableSceneAsync(environment);
+```
+*   **Ordered per scene** - loads and unloads of one handler run one at a time, in the order asked; an unload during a load waits for it, then unloads
+*   **Always completes** - failures are logged and return an invalid `Scene`; nothing is left half-loaded
+*   **Cancellation and timeout** - `LoadAddressableSceneAsync(handler, token, timeoutSec)`; a load cut short is unloaded once it lands
+*   **Light probes** are re-tetrahedralized after every load and unload
+*   **Status follows Single-mode loads** - a scene taken by a Single load reads as `Unloaded`
+
 #### **Loading Screen Implementations**
 Two loading screen implementations are available:
 

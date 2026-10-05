@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
-using UnityEngine.ResourceManagement.ResourceProviders;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -61,8 +59,14 @@ namespace Majinfwork.World {
 
             if (levelStreamCollection.Length != 0) {
                 for (int i = 0; i < levelStreamCollection.Length; i++) {
-                    levelStreamCollection[i].status = SceneLoadStatus.Unloaded;
-                    levelStreamDictionary[levelStreamCollection[i].sceneAddressable.AssetGUID] = levelStreamCollection[i];
+                    var stream = levelStreamCollection[i];
+                    if (stream?.sceneAddressable == null || !stream.sceneAddressable.RuntimeKeyIsValid()) {
+                        Debug.LogWarning($"[WorldConfig] '{name}' level stream {i} has no scene; skipped.");
+                        continue;
+                    }
+
+                    stream.ResetState();
+                    levelStreamDictionary[stream.sceneAddressable.AssetGUID] = stream;
                 }
             }
         }
@@ -94,28 +98,4 @@ namespace Majinfwork.World {
 #endif
         public string mapName;
     }
-
-    [Serializable]
-    public class AddressableSceneHandler {
-        public AssetReference sceneAddressable;
-        internal AsyncOperationHandle<SceneInstance> streamHandler;
-        internal Action<string> streamHandlerCompleted;
-        [SerializeField] internal SceneLoadStatus status = SceneLoadStatus.Unloaded;
-
-        public void UpdateHandler(AsyncOperationHandle<SceneInstance> obj) {
-            if (obj.Status == AsyncOperationStatus.Failed) {
-                goto Reset;
-            }
-
-            LightProbes.TetrahedralizeAsync();
-            streamHandler = obj;
-            streamHandlerCompleted?.Invoke(obj.Result.Scene.path);
-
-            Reset:
-            streamHandlerCompleted = null;
-            status = obj.Result.Scene.isLoaded? SceneLoadStatus.Loaded:SceneLoadStatus.Unloaded;
-        }
-    }
-
-    internal enum SceneLoadStatus { Unloaded, Loading, Loaded }
 }
