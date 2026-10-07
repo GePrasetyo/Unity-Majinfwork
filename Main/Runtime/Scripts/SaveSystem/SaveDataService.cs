@@ -158,11 +158,7 @@ namespace Majinfwork.SaveSystem {
                 var filePath = GetFilePath(data.FileName);
                 Debug.Log($"[SaveDataService] Saving {filePath}");
 
-                await Task.Run(() => {
-                    using (var stream = File.Open(filePath, FileMode.Create, FileAccess.Write)) {
-                        serializer.Serialize(stream, data);
-                    }
-                }, cancellationToken).ConfigureAwait(false);
+                await Task.Run(() => WriteFileAtomic(filePath, stream => serializer.Serialize(stream, data)), cancellationToken).ConfigureAwait(false);
 
                 return true;
             }
@@ -366,6 +362,8 @@ namespace Majinfwork.SaveSystem {
             var files = Directory.GetFiles(slotDir);
             var result = new List<string>(files.Length);
             for (int i = 0; i < files.Length; i++) {
+                // A temporary file is left behind only when a write was interrupted; it is not a save.
+                if (files[i].EndsWith(TempFileSuffix, StringComparison.Ordinal)) continue;
                 result.Add(Path.GetFileNameWithoutExtension(files[i]));
             }
             return result;
@@ -373,6 +371,31 @@ namespace Majinfwork.SaveSystem {
 
         protected string GetFilePath(string fileName) {
             return Path.Combine(CurrentSlotDirectory, fileName + serializer.FileExtension);
+        }
+
+        private const string TempFileSuffix = ".tmp";
+
+        /// <summary>
+        /// Writes a file so that a crash, power loss or the OS killing the app mid-write never leaves it half written:
+        /// the content goes to a temporary file next to it, is flushed to disk, then replaces the old file in one step.
+        /// Until the replace, the previous version stays intact.
+        /// </summary>
+        protected static void WriteFileAtomic(string path, Action<Stream> write) {
+            var tempPath = path + TempFileSuffix;
+            using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None)) {
+                write(stream);
+                // A serializer may close the stream itself; only a still-open stream can be synced here.
+                if (stream.CanWrite) {
+                    stream.Flush(true);
+                }
+            }
+
+            if (File.Exists(path)) {
+                File.Replace(tempPath, path, null);
+            }
+            else {
+                File.Move(tempPath, path);
+            }
         }
 
         #endregion
@@ -417,11 +440,7 @@ namespace Majinfwork.SaveSystem {
         protected virtual async Task SaveContainerAsync(CancellationToken cancellationToken) {
             container.Touch();
 
-            await Task.Run(() => {
-                using (var stream = File.Open(ContainerPath, FileMode.Create, FileAccess.Write)) {
-                    serializer.Serialize(stream, container);
-                }
-            }, cancellationToken).ConfigureAwait(false);
+            await Task.Run(() => WriteFileAtomic(ContainerPath, stream => serializer.Serialize(stream, container)), cancellationToken).ConfigureAwait(false);
         }
 
         #endregion
