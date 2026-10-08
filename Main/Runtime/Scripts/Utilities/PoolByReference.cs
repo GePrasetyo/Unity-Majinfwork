@@ -3,6 +3,11 @@ using UnityEngine;
 using UnityEngine.Pool;
 
 namespace Majinfwork.Pool {
+    /// <summary>
+    /// Pools instances per prefab (the key). Pooled items live under one persistent root: taking one only re-parents it
+    /// when the caller asks for a parent, and returning one only re-parents it when it isn't already there, so a
+    /// spawn/despawn cycle costs no hierarchy changes (and a scene unload can't destroy items the pool still holds).
+    /// </summary>
     public static class PoolByReference {
         private static readonly Dictionary<object, object> poolbyRefCollection = new Dictionary<object, object>();
         private static Transform parentPool;
@@ -114,11 +119,12 @@ namespace Majinfwork.Pool {
         }
 
         private static void OnReturnedToPool<T>(T obj) where T : Component {
-            obj.transform.SetParent(parentPool);
+            if (obj.transform.parent != parentPool) {
+                obj.transform.SetParent(parentPool);
+            }
         }
 
         private static void OnTakeFromPool<T>(T obj) where T : Component {
-            obj.transform.SetParent(null);
             obj.gameObject.SetActive(true);
         }
 
