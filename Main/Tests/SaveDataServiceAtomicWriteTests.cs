@@ -39,6 +39,12 @@ namespace Majinfwork.Tests {
         [UnityTest]
         public IEnumerator Leftover_Temp_File_Is_Not_A_Save() => Run(LeftoverTempFileAsync);
 
+        [UnityTest]
+        public IEnumerator Simultaneous_Saves_Of_One_File_All_Complete() => Run(SimultaneousSavesAsync);
+
+        [UnityTest]
+        public IEnumerator Failed_Write_Leaves_No_Temp_File() => Run(FailedWriteLeavesNoTempFileAsync);
+
         private static IEnumerator Run(Func<Task> test) {
             var task = test();
             while (!task.IsCompleted) yield return null;
@@ -68,6 +74,42 @@ namespace Majinfwork.Tests {
             var loaded = await (await OpenAsync(new BinarySaveSerializer())).LoadAsync<ProbeSave>(ProbeSave.Name);
             Assert.AreEqual(2, loaded.score);
             Assert.IsEmpty(Directory.GetFiles(tempDir, "*.tmp", SearchOption.AllDirectories), "a temporary file was left behind");
+        }
+
+        private async Task SimultaneousSavesAsync() {
+            var service = await OpenAsync(new BinarySaveSerializer());
+            Assert.IsTrue(await service.SaveAsync(new ProbeSave { score = 1 }));
+
+            // Two saves of the same file in flight at once (one per app instance sharing a data folder, or two in one app).
+            var other = await OpenAsync(new BinarySaveSerializer());
+            // The OS may refuse one of two replaces landing at the same instant; that one reports a failure (logged).
+            LogAssert.ignoreFailingMessages = true;
+            Task<bool> first, second;
+            try {
+                first = service.SaveAsync(new ProbeSave { score = 2 });
+                second = other.SaveAsync(new ProbeSave { score = 3 });
+                await Task.WhenAll(first, second);
+            }
+            finally {
+                LogAssert.ignoreFailingMessages = false;
+            }
+            Assert.IsTrue(first.Result || second.Result, "both simultaneous saves failed");
+
+            var loaded = await (await OpenAsync(new BinarySaveSerializer())).LoadAsync<ProbeSave>(ProbeSave.Name);
+            Assert.IsNotNull(loaded, "the save was destroyed by simultaneous writes");
+            Assert.That(loaded.score == 2 || loaded.score == 3, "the save holds neither write: " + loaded.score);
+            Assert.IsEmpty(Directory.GetFiles(tempDir, "*.tmp", SearchOption.AllDirectories), "a temporary file was left behind");
+        }
+
+        private async Task FailedWriteLeavesNoTempFileAsync() {
+            var serializer = new FlakySerializer();
+            var service = await OpenAsync(serializer);
+            Assert.IsTrue(await service.SaveAsync(new ProbeSave { score = 5 }));
+
+            serializer.FailNextWrite = true;
+            LogAssert.Expect(LogType.Error, new Regex("simulated crash mid-write"));
+            Assert.IsFalse(await service.SaveAsync(new ProbeSave { score = 6 }));
+            Assert.IsEmpty(Directory.GetFiles(tempDir, "*.tmp", SearchOption.AllDirectories), "a failed write left its temporary file");
         }
 
         private async Task LeftoverTempFileAsync() {

@@ -378,23 +378,42 @@ namespace Majinfwork.SaveSystem {
         /// <summary>
         /// Writes a file so that a crash, power loss or the OS killing the app mid-write never leaves it half written:
         /// the content goes to a temporary file next to it, is flushed to disk, then replaces the old file in one step.
-        /// Until the replace, the previous version stays intact.
+        /// Until the replace, the previous version stays intact. Each write has its own temporary file, so two writes of
+        /// the same save at once (two saves in flight, or two app instances sharing a data folder) never write into the
+        /// same one: the last to finish wins, whole.
         /// </summary>
         protected static void WriteFileAtomic(string path, Action<Stream> write) {
-            var tempPath = path + TempFileSuffix;
-            using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None)) {
-                write(stream);
-                // A serializer may close the stream itself; only a still-open stream can be synced here.
-                if (stream.CanWrite) {
-                    stream.Flush(true);
+            var tempPath = path + "." + Guid.NewGuid().ToString("N") + TempFileSuffix;
+            try {
+                using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None)) {
+                    write(stream);
+                    // A serializer may close the stream itself; only a still-open stream can be synced here.
+                    if (stream.CanWrite) {
+                        stream.Flush(true);
+                    }
+                }
+
+                if (File.Exists(path)) {
+                    File.Replace(tempPath, path, null);
+                }
+                else {
+                    try {
+                        File.Move(tempPath, path);
+                    }
+                    catch (IOException) when (File.Exists(path)) {
+                        // Another write created the file meanwhile: replace it like any existing save.
+                        File.Replace(tempPath, path, null);
+                    }
                 }
             }
-
-            if (File.Exists(path)) {
-                File.Replace(tempPath, path, null);
-            }
-            else {
-                File.Move(tempPath, path);
+            finally {
+                // A failed write leaves nothing behind (the previous save stays as it was).
+                if (File.Exists(tempPath)) {
+                    try {
+                        File.Delete(tempPath);
+                    }
+                    catch (IOException) { /* best effort */ }
+                }
             }
         }
 
