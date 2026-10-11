@@ -2,7 +2,10 @@
     "name": "M_Editor",
     "rootNamespace": "",
     "references": [
-        "GUID:5ae0b8f61355378439f76ca163caef2a"
+        "GUID:5ae0b8f61355378439f76ca163caef2a",
+        "Unity.Addressables",
+        "Unity.Addressables.Editor",
+        "MStateGraph"
     ],
     "includePlatforms": [
         "Editor"
@@ -13,6 +16,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.majingari.stategraph",
+            "expression": "",
+            "define": "HAS_STATEGRAPH"
+        }
+    ],
     "noEngineReferences": false
 }

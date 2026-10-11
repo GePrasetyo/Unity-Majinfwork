@@ -49,15 +49,18 @@ The framework adopts Unreal's decoupled architecture, separating data, rules, an
 
 ## 🚀 Getting Started
 
-To begin using the framework, you must initialize the **World Settings**. This acts as the central hub for your project's configuration.
+To begin using the framework, you must set up the **World Settings**: the project's boot configuration, like Unreal's *Maps & Modes* project settings. There is exactly one per project, edited in **Project Settings > Majingari Framework**.
 
 > [!TIP]
-> You can quickly access or create your settings by navigating to **Majingari Framework > Get World Settings** in the Unity menu.
+> **Majingari Framework > Get World Settings** opens that page.
 
-1.  **Create Settings:** Using the menu item above will generate a `GameWorldSettings.asset` file in your `Assets/Resources` folder.
+1.  **Create Settings:** on that page, **Create World Settings...** asks for a folder (any folder; it doesn't need to be `Resources`) and creates `GameWorldSettings.asset` there, with working defaults beside it: a `PersistentGameInstance`, a `WorldConfig` with an Addressable default GameMode, and default PlayerController and PlayerState prefabs. To use an asset you already have, pick it in the **World Settings** field instead.
 2.  **Assign Game Instance:** Ensure a **Game Instance** (such as the provided `PersistentGameInstance`) is assigned to the settings asset.
 3.  **Attach World Config:** Create and attach a `WorldConfig` ScriptableObject to define how your scenes behave.
 4.  **Assign Player Prefabs:** Set the **PlayerController** and **PlayerState** prefabs. These are created once at boot and persist for the application lifetime.
+5.  **PSO Warmup (optional):** **Majingari Framework > Create PSO Warmup Config** creates one next to the settings and sets it on them.
+
+The registered settings are stored with the project settings (the way XR Plug-in Management stores its settings). Every player build carries them as a preloaded asset, so they are loaded before the first scene and the framework boots from them; a build without settings fails. A project upgraded from an older version (settings in `Resources`) has its one `GameWorldSettings` registered automatically; move it out of `Resources` afterwards, or a build ships it twice.
 
 ---
 

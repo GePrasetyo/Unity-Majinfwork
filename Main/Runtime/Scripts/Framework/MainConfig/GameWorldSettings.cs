@@ -8,7 +8,17 @@ using UnityEditor;
 #endif
 
 namespace Majinfwork.World {
-    internal sealed class GameWorldSettings : ScriptableObject {
+    /// <summary>
+    /// The project's world settings: the GameInstance that runs the app, the WorldConfig (each scene's GameMode), the
+    /// persistent PlayerController and PlayerState, the save system and the PSO warmup. Like Unreal's Maps &amp; Modes project
+    /// settings there is exactly one per project: the asset registered in Project Settings &gt; Majingari Framework, which can
+    /// live in any folder. A build carries it as a preloaded asset, so it is loaded before the first scene and the framework
+    /// boots from it; in the editor the registered asset is used directly.
+    /// </summary>
+    public sealed class GameWorldSettings : ScriptableObject {
+        /// <summary>The key the project's settings are registered under (EditorBuildSettings config objects).</summary>
+        public const string ConfigKey = "com.majingari.framework.worldsettings";
+
         [SerializeReference, ClassReference] internal GameInstance classGameInstance;
         [SerializeField] private WorldConfig worldConfigObject;
         [SerializeField] private GameScriptableObject[] preInitializeSciptableObjects = Array.Empty<GameScriptableObject>();
@@ -22,12 +32,44 @@ namespace Majinfwork.World {
         [SerializeField] private int saveSlotCount = 1;
         [SerializeField] private int defaultSlotIndex = 0;
 
+        [Header("PSO Warmup")]
+        [Tooltip("Warms up the pipeline states before the first scene (none: no warmup).")]
+        [SerializeField] private PSOWarmupConfig psoWarmup;
+
+#if !UNITY_EDITOR
+        private static GameWorldSettings preloaded;
+
+        // A player loads the build's settings (its one preloaded GameWorldSettings) before the first scene.
+        private void OnEnable() {
+            preloaded = this;
+        }
+#endif
+
+        /// <summary>The project's settings: the registered asset in the editor, the preloaded one in a player.</summary>
+        internal static GameWorldSettings Active {
+            get {
+#if UNITY_EDITOR
+                EditorBuildSettings.TryGetConfigObject(ConfigKey, out GameWorldSettings registered);
+                return registered;
+#else
+                return preloaded;
+#endif
+            }
+        }
+
+        private static GameWorldSettings Require() {
+            GameWorldSettings settings = Active;
+            if (settings == null) {
+                Debug.LogError("[Majingari Framework] This project has no world settings: create or pick them in Project Settings > Majingari Framework.");
+            }
+
+            return settings;
+        }
+
         [RuntimeInitializeOnLoadMethod]
         private static void WorldBuilderStart() {
-            var instance = Resources.Load<GameWorldSettings>(nameof(GameWorldSettings));
-
+            var instance = Require();
             if (instance == null) {
-                Debug.LogError("You don't have world settings, please create the world setting first");
                 return;
             }
 
@@ -44,8 +86,7 @@ namespace Majinfwork.World {
 
             instance.worldConfigObject.SetupSceneConfiguration();
 
-            // Check for PSO warmup config
-            var psoConfig = Resources.Load<PSOWarmupConfig>(nameof(PSOWarmupConfig));
+            PSOWarmupConfig psoConfig = instance.psoWarmup;
             bool shouldWarmup = psoConfig != null;
 #if UNITY_EDITOR
             if (shouldWarmup && psoConfig.SkipInEditor)
@@ -97,10 +138,8 @@ namespace Majinfwork.World {
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void InitializeInstanceScriptableObject() {
-            var instance = Resources.Load<GameWorldSettings>(nameof(GameWorldSettings));
-
+            var instance = Require();
             if (instance == null) {
-                Debug.LogError("You don't have world settings, please create the world setting first");
                 return;
             }
 
