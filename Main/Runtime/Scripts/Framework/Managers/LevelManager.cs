@@ -12,6 +12,11 @@ namespace Majinfwork.World {
     /// GameModes are now loaded via Addressables so each mini-game's closure
     /// (HUD prefab, pawn prefab, input prefab) stays out of the boot Resources archive
     /// and only pulls into memory when its scene activates.
+    /// <para>
+    /// A level can be loaded here (<see cref="LoadLevelAsync"/>), or by something else, such as a network scene manager, which
+    /// then hands the loaded scene over with <see cref="ActivateLevelAsync"/>. Either way the newest request wins: one still
+    /// resolving its GameMode when another arrives is dropped.
+    /// </para>
     /// </summary>
     public class LevelManager {
         private readonly WorldConfig worldConfig;
@@ -19,6 +24,8 @@ namespace Majinfwork.World {
         private GameModeManager currentGameModeTemplate;
         private AsyncOperationHandle<GameModeManager> currentGameModeHandle;
         private bool hasCurrentHandle;
+        /// <summary>Counts level requests: an activation finishing behind a newer request gives way to it.</summary>
+        private int requests;
 
         public GameModeManager CurrentGameMode => currentGameMode;
         public bool IsLoading { get; private set; }
@@ -55,6 +62,7 @@ namespace Majinfwork.World {
                     await LoadSceneInternalAsync(sceneName, cancellationToken);
                 }
 
+                requests++;
                 ActivateGameMode(targetTemplate, targetHandle);
 
                 CurrentSceneName = sceneName;
@@ -70,6 +78,41 @@ namespace Majinfwork.World {
             }
             finally {
                 IsLoading = false;
+            }
+        }
+
+        /// <summary>
+        /// Activates the GameMode of <paramref name="sceneName"/>, a level something else has loaded (a network scene manager,
+        /// a custom loader); the current GameMode gives way to it. The newest call wins: one still resolving its GameMode when
+        /// another arrives is dropped, so the level asked for last is the one whose GameMode ends up active. Asking again
+        /// for the level that is running restarts its GameMode, as a freshly loaded copy of the level needs. True when this
+        /// request's GameMode is the one now active (false: a newer request took over).
+        /// </summary>
+        public async Task<bool> ActivateLevelAsync(string sceneName) {
+            int request = ++requests;
+            IsLoading = true;
+            try {
+                var (targetTemplate, targetHandle) = await ResolveGameModeAsync(sceneName);
+                if (request != requests) {
+                    // A newer request came in meanwhile: it activates its own GameMode.
+                    if (targetHandle.IsValid()) Addressables.Release(targetHandle);
+                    return false;
+                }
+
+                DeactivateCurrentGameMode();
+                ActivateGameMode(targetTemplate, targetHandle);
+                CurrentSceneName = sceneName;
+                Debug.Log($"[LevelManager] Level ready: {sceneName}");
+                return true;
+            }
+            catch (Exception e) {
+                Debug.LogError($"[LevelManager] Failed to activate level {sceneName}: {e.Message}");
+                throw;
+            }
+            finally {
+                if (request == requests) {
+                    IsLoading = false;
+                }
             }
         }
 
@@ -102,7 +145,9 @@ namespace Majinfwork.World {
                 return (null, default);
             }
 
-            var handle = reference.LoadAssetAsync<GameModeManager>();
+            // Loaded by key, not through the reference: a reference holds one load at a time, and a level restarting its
+            // GameMode loads it again before the running one is released (each load is counted and released on its own).
+            var handle = Addressables.LoadAssetAsync<GameModeManager>(reference.RuntimeKey);
             await handle.Task;
 
             if (handle.Status != AsyncOperationStatus.Succeeded) {

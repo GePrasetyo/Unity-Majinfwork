@@ -137,7 +137,7 @@ controller.UnPossess();
 ```
 
 #### **Spawning Additional Players**
-Player 0 is spawned automatically at boot. For split-screen or late-joining local players, spawn additional players through `GameInstance`:
+Player 0 is spawned automatically at boot, once the save system has loaded the saves (with the save system on), so players and the GameInstance read what is on disk from the start. For split-screen or late-joining local players, spawn additional players through `GameInstance`:
 ```csharp
 // Spawn a new persistent player (Controller + State)
 var newController = GameInstance.Instance<MyGame>().SpawnPlayer();
@@ -167,6 +167,10 @@ await GameInstance.Instance.LevelManager.LoadLevelAsync("GameplayScene");
 
 // Check loading state
 if (GameInstance.Instance.LevelManager.IsLoading) { /* ... */ }
+
+// A level loaded by something else (a network scene manager): hand it over, and its GameMode starts.
+// The newest request wins; asking again for the running level restarts its GameMode (a fresh copy of the level).
+bool active = await GameInstance.Instance.LevelManager.ActivateLevelAsync(loadedSceneName);
 ```
 
 #### **LevelStreamer (Additive Addressable Scenes)**

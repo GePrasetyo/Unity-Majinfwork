@@ -112,22 +112,33 @@ namespace Majinfwork.World {
             ContinueBoot(instance);
         }
 
-        private static void ContinueBoot(GameWorldSettings instance) {
+        private static async void ContinueBoot(GameWorldSettings instance) {
             // Register core services first so anything that runs during spawn/construct can resolve them.
+            Task saves = null;
             if (instance.enableSaveSystem) {
                 var saveService = new SaveDataService(slotCount: instance.saveSlotCount);
                 ServiceLocator.Register<ISaveDataService>(saveService);
-                _ = InitializeSaveServiceAsync(saveService, instance.defaultSlotIndex);
+                saves = InitializeSaveServiceAsync(saveService, instance.defaultSlotIndex);
             }
             ServiceLocator.Register<GameInstance>(instance.classGameInstance);
+            Application.quitting += instance.OnGameQuit;
+
+            // Players and the game instance read their saves as they start: they come up once the saves are loaded, so
+            // nothing ever sees a stand-in for what is on disk.
+            if (saves != null) {
+                try {
+                    await saves;
+                }
+                catch (System.Exception e) {
+                    Debug.LogException(e);
+                }
+            }
 
             // Then do work that may depend on them (PlayerState.OnCreated resolves GameInstance).
             PlayerManager.Initialize(instance.playerControllerPrefab, instance.playerStatePrefab);
             PlayerManager.SpawnPlayer();
 
             instance.classGameInstance.Construct(instance.worldConfigObject);
-
-            Application.quitting += instance.OnGameQuit;
         }
 
         private static async Task InitializeSaveServiceAsync(SaveDataService saveService, int slotIndex) {
