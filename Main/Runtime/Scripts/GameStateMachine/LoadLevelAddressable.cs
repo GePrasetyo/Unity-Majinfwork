@@ -1,4 +1,7 @@
 #if HAS_STATEGRAPH
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Majinfwork.StateGraph;
 using Majinfwork.World;
 using UnityEngine;
@@ -14,33 +17,38 @@ namespace Majinfwork {
         public StateTransition onFailed;
 
         public override void Begin(StateContext ctx) {
-            LoadSceneAsync(ctx);
+            _ = LoadSceneAsync(ctx, ctx.ExitToken);
         }
 
-        // The exit is requested after awaits, so the context is captured rather
-        // than read from StateContext.Current, which is only valid synchronously.
-        private async void LoadSceneAsync(StateContext ctx) {
-            var loadingStreamer = ServiceLocator.Resolve<LoadingStreamer>();
+        private async Task LoadSceneAsync(StateContext ctx, CancellationToken token) {
+            try {
+                var loadingStreamer = ServiceLocator.Resolve<LoadingStreamer>();
 
-            // Fade in loading screen
-            if (loadingStreamer != null) {
-                await loadingStreamer.StartLoadingAsync();
+                if (loadingStreamer != null) {
+                    await loadingStreamer.StartLoadingAsync(token);
+                }
+
+                var handle = Addressables.LoadSceneAsync(sceneAddressable, loadSceneMode);
+                await handle.Task;
+                token.ThrowIfCancellationRequested();
+
+                if (loadingStreamer != null) {
+                    await loadingStreamer.StopLoadingAsync(token);
+                }
+
+                if (handle.Status == AsyncOperationStatus.Succeeded) {
+                    ctx.Exit(onComplete);
+                }
+                else {
+                    Debug.LogError($"Failed to load addressable scene: {sceneAddressable.RuntimeKey}");
+                    ctx.Exit(onFailed);
+                }
             }
-
-            // Load scene via Addressables
-            var handle = Addressables.LoadSceneAsync(sceneAddressable, loadSceneMode);
-            await handle.Task;
-
-            // Fade out loading screen
-            if (loadingStreamer != null) {
-                await loadingStreamer.StopLoadingAsync();
+            catch (OperationCanceledException) {
+                // The state ended first: whatever it went to owns the level now.
             }
-
-            if (handle.Status == AsyncOperationStatus.Succeeded) {
-                ctx.Exit(onComplete);
-            }
-            else {
-                Debug.LogError($"Failed to load addressable scene: {sceneAddressable.RuntimeKey}");
+            catch (Exception exception) {
+                Debug.LogException(exception);
                 ctx.Exit(onFailed);
             }
         }

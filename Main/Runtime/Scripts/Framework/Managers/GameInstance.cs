@@ -16,6 +16,9 @@ namespace Majinfwork {
 #if HAS_STATEGRAPH
         [Header("State Machine")]
         [SerializeField] protected GameStateMachineGraph gameStateMachine;
+
+        /// <summary>Runs the game state machine for the whole game; null without one.</summary>
+        public StateRunner StateMachine { get; private set; }
 #endif
 
         /// <summary>
@@ -60,16 +63,22 @@ namespace Majinfwork {
 
 #if HAS_STATEGRAPH
             if (gameStateMachine != null) {
-                var fsm = new GameObject().AddComponent<StateRunner>();
-                fsm.name = "[Service] State Machine";
-                fsm.SetGraph(gameStateMachine);
-                fsm.SetRuntimeGraph(gameStateMachine);
-                Object.DontDestroyOnLoad(fsm.gameObject);
+                // The runner's Start prepares the graph (a clone unless shared); preparing it here too would run the asset itself.
+                StateMachine = new GameObject("[Service] State Machine").AddComponent<StateRunner>();
+                StateMachine.SetGraph(gameStateMachine);
+                Object.DontDestroyOnLoad(StateMachine.gameObject);
             }
 #endif
         }
 
         public void Deconstruct() {
+#if HAS_STATEGRAPH
+            if (StateMachine != null) {
+                Object.Destroy(StateMachine.gameObject);
+                StateMachine = null;
+            }
+#endif
+
             // Shutdown LevelManager
             if (LevelManager != null) {
                 LevelManager.Shutdown();

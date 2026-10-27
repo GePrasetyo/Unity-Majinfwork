@@ -1,4 +1,7 @@
 #if HAS_STATEGRAPH
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Majinfwork.StateGraph;
 using Majinfwork.World;
 using UnityEngine;
@@ -13,34 +16,37 @@ namespace Majinfwork {
         public StateTransition onComplete;
 
         public override void Begin(StateContext ctx) {
-            LoadSceneAsync(ctx);
+            _ = LoadSceneAsync(ctx, ctx.ExitToken);
         }
 
-        // The exit is requested after awaits, so the context is captured rather
-        // than read from StateContext.Current, which is only valid synchronously.
-        private async void LoadSceneAsync(StateContext ctx) {
-            var loadingStreamer = ServiceLocator.Resolve<LoadingStreamer>();
-            var levelManager = ServiceLocator.Resolve<LevelManager>();
+        private async Task LoadSceneAsync(StateContext ctx, CancellationToken token) {
+            try {
+                var loadingStreamer = ServiceLocator.Resolve<LoadingStreamer>();
+                var levelManager = ServiceLocator.Resolve<LevelManager>();
 
-            if (levelManager == null) {
-                Debug.LogError("[LoadLevel] LevelManager not found!");
-                return;
+                if (levelManager == null) {
+                    Debug.LogError("[LoadLevel] LevelManager not found!");
+                    return;
+                }
+
+                if (loadingStreamer != null) {
+                    await loadingStreamer.StartLoadingAsync(token);
+                }
+
+                await levelManager.LoadLevelAsync(map.mapName, token);
+
+                if (loadingStreamer != null) {
+                    await loadingStreamer.StopLoadingAsync(token);
+                }
+
+                ctx.Exit(onComplete);
             }
-
-            // Fade in loading screen
-            if (loadingStreamer != null) {
-                await loadingStreamer.StartLoadingAsync();
+            catch (OperationCanceledException) {
+                // The state ended first: whatever it went to owns the level now.
             }
-
-            // Load the level
-            await levelManager.LoadLevelAsync(map.mapName);
-
-            // Fade out loading screen
-            if (loadingStreamer != null) {
-                await loadingStreamer.StopLoadingAsync();
+            catch (Exception exception) {
+                Debug.LogException(exception);
             }
-
-            ctx.Exit(onComplete);
         }
     }
 }
