@@ -15,6 +15,9 @@ namespace Majinfwork.World {
         [SerializeField] private AddressableSceneHandler[] levelStreamCollection = Array.Empty<AddressableSceneHandler>();
 
         [Header("Default Fallback")]
+        [Tooltip("GameMode used when a scene has no specific GameMode configured, built in with this config. " +
+                 "Takes precedence over the Addressable one below.")]
+        [SerializeField] private GameModeManager builtInDefaultGameMode;
         [Tooltip("GameMode used when a scene has no specific GameMode configured. Addressable, loaded on demand.")]
         [SerializeField] private AssetReferenceT<GameModeManager> defaultGameMode;
 
@@ -30,6 +33,7 @@ namespace Majinfwork.World {
                  "key falls back to the default loadingHandler above.")]
         [SerializeField] private KeyedLoadingStreamer[] keyedLoadingStreamers = System.Array.Empty<KeyedLoadingStreamer>();
 
+        public GameModeManager BuiltInDefaultGameMode => builtInDefaultGameMode;
         public AssetReferenceT<GameModeManager> DefaultGameMode => defaultGameMode;
 
         public void SetupSceneConfiguration() {
@@ -85,9 +89,12 @@ namespace Majinfwork.World {
         public SceneAsset Map;
 #endif
         public string mapName;
+        // Built in — the GameModeManager and its dependency chain load with this config. For modes that share their
+        // content with what the game keeps loaded anyway. Takes precedence over TheGameMode.
+        public GameModeManager BuiltInGameMode;
         // Addressable — the GameModeManager and its dependency chain (HUD, pawn, input
-        // prefabs) only load when this scene is activated. Was a direct SO reference,
-        // which pulled every mini-game's assets into the boot-time Resources closure.
+        // prefabs) only load when this scene is activated, keeping a mini-game's assets
+        // out of boot.
         public AssetReferenceT<GameModeManager> TheGameMode;
     }
 

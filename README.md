@@ -71,6 +71,8 @@ The framework uses a "Map-to-Mode" architecture. You define a **WorldConfig** as
 *   **Map List:** A dictionary-style mapping of scene names to specific **GameModeManagers**.
 *   **Default Game Mode:** A fallback mode used for any scene not explicitly listed.
 
+Each GameMode (per map, and the default) is either **built in**, a direct reference that loads with the WorldConfig, or **Addressable**, loaded only when its scene activates. Use built in for modes whose content the game keeps loaded anyway (the player, shared configs); use Addressable for a mode with its own heavy content, such as a mini-game. When both are set, the built-in one wins.
+
 ### **2. Game Mode Manager**
 The **GameModeManager** is a ScriptableObject that defines the "rules" for a specific scene. It manages:
 *   **Managers:** Automatically instantiates your `GameState` prefab.

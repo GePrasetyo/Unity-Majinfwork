@@ -9,9 +9,8 @@ using UnityEngine.SceneManagement;
 namespace Majinfwork.World {
     /// <summary>
     /// Manages level loading and GameMode transitions.
-    /// GameModes are now loaded via Addressables so each mini-game's closure
-    /// (HUD prefab, pawn prefab, input prefab) stays out of the boot Resources archive
-    /// and only pulls into memory when its scene activates.
+    /// A GameMode is built in (it loads with the WorldConfig) or Addressable, so a mini-game's closure
+    /// (HUD prefab, pawn prefab, input prefab) stays out of boot and only pulls into memory when its scene activates.
     /// <para>
     /// A level can be loaded here (<see cref="LoadLevelAsync"/>), or by something else, such as a network scene manager, which
     /// then hands the loaded scene over with <see cref="ActivateLevelAsync"/>. Either way the newest request wins: one still
@@ -117,9 +116,9 @@ namespace Majinfwork.World {
         }
 
         /// <summary>
-        /// Resolves the GameMode asset for a scene. Returns both the loaded asset and its
-        /// Addressables handle so the caller can release it on deactivation. Handle is
-        /// <c>default</c> (unused) when no Addressable applies.
+        /// Resolves the GameMode asset for a scene: the scene's own, else the default; for each, the built-in one if set,
+        /// else the Addressable one. Returns both the asset and its Addressables handle so the caller can release it on
+        /// deactivation. Handle is <c>default</c> (unused) for a built-in GameMode or none.
         /// </summary>
         private async Task<(GameModeManager template, AsyncOperationHandle<GameModeManager> handle)>
             ResolveGameModeAsync(string sceneName) {
@@ -129,20 +128,27 @@ namespace Majinfwork.World {
                 return (null, default);
             }
 
+            GameModeManager builtIn = null;
             AssetReferenceT<GameModeManager> reference = null;
 
             if (worldConfig.MapConfigList.TryGetValue(sceneName, out var mapConfig)
-                && mapConfig.TheGameMode != null && mapConfig.TheGameMode.RuntimeKeyIsValid()) {
+                && (mapConfig.BuiltInGameMode != null || (mapConfig.TheGameMode != null && mapConfig.TheGameMode.RuntimeKeyIsValid()))) {
+                builtIn = mapConfig.BuiltInGameMode;
                 reference = mapConfig.TheGameMode;
             }
-            else if (worldConfig.DefaultGameMode != null && worldConfig.DefaultGameMode.RuntimeKeyIsValid()) {
+            else if (worldConfig.BuiltInDefaultGameMode != null
+                     || (worldConfig.DefaultGameMode != null && worldConfig.DefaultGameMode.RuntimeKeyIsValid())) {
                 Debug.LogWarning($"[LevelManager] Scene '{sceneName}' has no GameMode; using default.");
+                builtIn = worldConfig.BuiltInDefaultGameMode;
                 reference = worldConfig.DefaultGameMode;
             }
-
-            if (reference == null) {
+            else {
                 Debug.LogWarning($"[LevelManager] No GameMode (default or specific) configured for scene: {sceneName}");
                 return (null, default);
+            }
+
+            if (builtIn != null) {
+                return (builtIn, default);
             }
 
             // Loaded by key, not through the reference: a reference holds one load at a time, and a level restarting its
