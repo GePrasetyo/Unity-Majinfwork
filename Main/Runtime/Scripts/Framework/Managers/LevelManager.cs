@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -27,6 +28,11 @@ namespace Majinfwork.World {
 
         public LevelManager(WorldConfig worldConfig) {
             this.worldConfig = worldConfig;
+        }
+
+        /// <summary>The Addressable scenes the WorldConfig streams with <paramref name="sceneName"/>, for the <see cref="LevelStreamer"/>.</summary>
+        public IReadOnlyList<AddressableSceneHandler> StreamingLevelsOf(string sceneName) {
+            return worldConfig != null ? worldConfig.StreamingLevelsOf(sceneName) : Array.Empty<AddressableSceneHandler>();
         }
 
         /// <summary>

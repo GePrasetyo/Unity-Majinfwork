@@ -11,7 +11,7 @@ namespace Majinfwork.World {
     [CreateAssetMenu(fileName = "Default World Config", menuName = "MFramework/Config Object/World Config")]
     public class WorldConfig : ScriptableObject {
         [Header("Scene Configuration")]
-        [Tooltip("A scene's GameMode, run when whatever loads the scene names none (the loader's GameMode comes first).")]
+        [Tooltip("Each map's streaming levels, and its GameMode for when whatever loads the map names none (the loader's GameMode comes first).")]
         [SerializeField] private WorldAssetConfig[] mapList = new WorldAssetConfig[0];
         [SerializeField] private AddressableSceneHandler[] levelStreamCollection = Array.Empty<AddressableSceneHandler>();
 
@@ -33,6 +33,17 @@ namespace Majinfwork.World {
 
         public GameModeManager DefaultGameMode => defaultMode;
 
+        /// <summary>The Addressable scenes streamed with <paramref name="sceneName"/> (none when the map list doesn't name it).</summary>
+        public IReadOnlyList<AddressableSceneHandler> StreamingLevelsOf(string sceneName) {
+            foreach (WorldAssetConfig map in mapList) {
+                if (map.mapName == sceneName) {
+                    return map.streamingLevels;
+                }
+            }
+
+            return Array.Empty<AddressableSceneHandler>();
+        }
+
         public void SetupSceneConfiguration() {
             loadingHandler.Initialize();
             ServiceLocator.Register<LoadingStreamer>(loadingHandler);
@@ -50,26 +61,29 @@ namespace Majinfwork.World {
 
             MapConfigList.Clear();
 
-            if (mapList.Length != 0) {
-                for (int i = 0; i < mapList.Length; i++) {
-                    MapConfigList[mapList[i].mapName] = mapList[i];
-                }
-            }
-
             levelStreamDictionary.Clear();
 
-            if (levelStreamCollection.Length != 0) {
-                for (int i = 0; i < levelStreamCollection.Length; i++) {
-                    var stream = levelStreamCollection[i];
-                    if (stream?.sceneAddressable == null || !stream.sceneAddressable.RuntimeKeyIsValid()) {
-                        Debug.LogWarning($"[WorldConfig] '{name}' level stream {i} has no scene; skipped.");
-                        continue;
-                    }
-
-                    stream.ResetState();
-                    levelStreamDictionary[stream.sceneAddressable.AssetGUID] = stream;
+            for (int i = 0; i < mapList.Length; i++) {
+                MapConfigList[mapList[i].mapName] = mapList[i];
+                foreach (AddressableSceneHandler stream in mapList[i].streamingLevels) {
+                    RegisterStream(stream, mapList[i].mapName);
                 }
             }
+
+            for (int i = 0; i < levelStreamCollection.Length; i++) {
+                RegisterStream(levelStreamCollection[i], $"level stream {i}");
+            }
+        }
+
+        // Every stream, a map's or the collection's, is found by its scene's GUID, starting each play unloaded.
+        private void RegisterStream(AddressableSceneHandler stream, string owner) {
+            if (stream?.sceneAddressable == null || !stream.sceneAddressable.RuntimeKeyIsValid()) {
+                Debug.LogWarning($"[WorldConfig] '{name}' {owner} has a stream with no scene; skipped.");
+                return;
+            }
+
+            stream.ResetState();
+            levelStreamDictionary[stream.sceneAddressable.AssetGUID] = stream;
         }
     }
 
@@ -87,6 +101,8 @@ namespace Majinfwork.World {
 #endif
         public string mapName;
         [FormerlySerializedAs("BuiltInGameMode")] public GameModeManager gameMode;
+        [Tooltip("Addressable scenes streamed in on top of the map: what is seen, lit and collided with around it.")]
+        public AddressableSceneHandler[] streamingLevels = Array.Empty<AddressableSceneHandler>();
     }
 
     [Serializable]
