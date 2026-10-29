@@ -13,6 +13,8 @@ namespace Majinfwork {
     /// </summary>
     public class LoadLevel : StateNodeAsset {
         [SerializeField] private SceneReference map;
+        [Tooltip("The GameMode to run there; none: the WorldConfig's GameMode for the map.")]
+        [SerializeField] private GameModeManager gameMode;
         public StateTransition onComplete;
 
         public override void Begin(StateContext ctx) {
@@ -33,7 +35,7 @@ namespace Majinfwork {
                     await loadingStreamer.StartLoadingAsync(token);
                 }
 
-                await levelManager.LoadLevelAsync(map.mapName, token);
+                await levelManager.LoadLevelAsync(map.mapName, gameMode, token);
 
                 if (loadingStreamer != null) {
                     await loadingStreamer.StopLoadingAsync(token);

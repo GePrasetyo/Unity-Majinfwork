@@ -11,14 +11,15 @@ namespace Majinfwork.World {
     [CreateAssetMenu(fileName = "Default World Config", menuName = "MFramework/Config Object/World Config")]
     public class WorldConfig : ScriptableObject {
         [Header("Scene Configuration")]
+        [Tooltip("A scene's GameMode, run when whatever loads the scene names none (the loader's GameMode comes first).")]
         [SerializeField] private WorldAssetConfig[] mapList = new WorldAssetConfig[0];
         [SerializeField] private AddressableSceneHandler[] levelStreamCollection = Array.Empty<AddressableSceneHandler>();
 
         [Header("Default Fallback")]
-        [Tooltip("GameMode used when a scene has no specific GameMode configured, built in with this config. " +
+        [Tooltip("GameMode used when neither the loader nor the scene names one, built in with this config. " +
                  "Takes precedence over the Addressable one below.")]
         [SerializeField] private GameModeManager builtInDefaultGameMode;
-        [Tooltip("GameMode used when a scene has no specific GameMode configured. Addressable, loaded on demand.")]
+        [Tooltip("GameMode used when neither the loader nor the scene names one. Addressable, loaded on demand.")]
         [SerializeField] private AssetReferenceT<GameModeManager> defaultGameMode;
 
         // Runtime lookup caches, rebuilt from mapList/levelStreamCollection in SetupSceneConfiguration().
