@@ -20,6 +20,11 @@
             "name": "com.majingari.stategraph",
             "expression": "",
             "define": "HAS_STATEGRAPH"
+        },
+        {
+            "name": "com.unity.multiplayer.playmode",
+            "expression": "",
+            "define": "HAS_MPPM"
         }
     ],
     "noEngineReferences": false

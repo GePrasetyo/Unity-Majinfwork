@@ -36,6 +36,15 @@ namespace Majinfwork.SaveSystem {
         protected bool isPreloadComplete;
         protected TaskCompletionSource<bool> preloadCompletionSource = new TaskCompletionSource<bool>();
 
+        /// <summary>
+        /// Where saves go by default: persistentDataPath/Saves. A Multiplayer Play Mode virtual player shares that path with
+        /// the main editor, so it saves in its own folder (persistentDataPath/VirtualPlayers/&lt;name&gt;/Saves): it is
+        /// another player, with its own profile.
+        /// </summary>
+        public static string DefaultDirectory => MultiplayerPlayMode.IsVirtualPlayer
+            ? Path.Combine(Application.persistentDataPath, "VirtualPlayers", MultiplayerPlayMode.PlayerName, "Saves")
+            : Path.Combine(Application.persistentDataPath, "Saves");
+
         public SaveSlot CurrentSlot => currentSlot;
         public SaveContainer Container => container;
         public bool IsInitialized => isInitialized;
@@ -57,11 +66,11 @@ namespace Majinfwork.SaveSystem {
         /// <summary>
         /// Creates a new save data service.
         /// </summary>
-        /// <param name="baseDirectory">Base directory for saves. Defaults to persistentDataPath/Saves.</param>
+        /// <param name="baseDirectory">Base directory for saves. Defaults to <see cref="DefaultDirectory"/>.</param>
         /// <param name="slotCount">Number of save slots.</param>
         /// <param name="serializer">Serializer to use. Defaults to BinarySaveSerializer.</param>
         public SaveDataService(string baseDirectory = null, int slotCount = 3, ISaveSerializer serializer = null) {
-            this.baseDirectory = baseDirectory ?? Path.Combine(Application.persistentDataPath, "Saves");
+            this.baseDirectory = baseDirectory ?? DefaultDirectory;
             this.slotCount = slotCount;
             this.serializer = serializer ?? new BinarySaveSerializer();
         }

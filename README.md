@@ -62,6 +62,8 @@ To begin using the framework, you must set up the **World Settings**: the projec
 
 The registered settings are stored with the project settings (the way XR Plug-in Management stores its settings). Every player build carries them as a preloaded asset, so they are loaded before the first scene and the framework boots from them; a build without settings fails. A project upgraded from an older version (settings in `Resources`) has its one `GameWorldSettings` registered automatically; move it out of `Resources` afterwards, or a build ships it twice.
 
+**Playing in the editor:** **Majingari Framework > Play With Framework** (Ctrl+Alt+P, also on the toolbar) enters Play Mode with the framework booted; plain Play leaves it off. Unity's Multiplayer Play Mode virtual players always boot it, since they only play when the main editor does, and they save apart from it (`persistentDataPath/VirtualPlayers/<name>/Saves`), so each is a player of its own (`MultiplayerPlayMode` says which instance is running).
+
 ---
 
 ## 🌍 Core Systems

@@ -74,7 +74,9 @@ namespace Majinfwork.World {
             }
 
 #if UNITY_EDITOR
-            if (!SessionState.GetBool(GameWorldSession.PlayWithFrameworkKey, false)) {
+            // A Multiplayer Play Mode virtual player never gets the main editor's Play With Framework flag, and only plays
+            // when the main editor does: it always boots.
+            if (!SessionState.GetBool(GameWorldSession.PlayWithFrameworkKey, false) && !MultiplayerPlayMode.IsVirtualPlayer) {
                 return;
             }
 #endif
