@@ -11,6 +11,7 @@ namespace Majinfwork.World {
 
         [Header("Player Setup")]
         [SerializeReference, ClassReference] private PawnProvider pawnProvider;
+        [Tooltip("Optional: none when the game reads its input elsewhere (an XR rig's own input).")]
         [SerializeField] private PlayerInput playerInputPrefab;
         [SerializeField] private HUD hudPrefab;
 
@@ -70,12 +71,12 @@ namespace Majinfwork.World {
             Quaternion spawnRot = playerStart != null ? playerStart.transform.rotation : Quaternion.identity;
 
             // Create GameMode-owned components
-            var input = Instantiate(playerInputPrefab);
+            var input = playerInputPrefab != null ? Instantiate(playerInputPrefab) : null;
             var pawn = pawnProvider.GetPawn(controller.State, spawnPos, spawnRot);
             var hud = hudPrefab != null ? Instantiate(hudPrefab) : null;
 
             // Mark as DontDestroyOnLoad so we control lifecycle, not scene unload
-            DontDestroyOnLoad(input.gameObject);
+            if (input != null) DontDestroyOnLoad(input.gameObject);
             DontDestroyOnLoad(pawn.gameObject);
             if (hud != null) DontDestroyOnLoad(hud.gameObject);
 

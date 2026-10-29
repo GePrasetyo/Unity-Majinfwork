@@ -6,11 +6,15 @@ namespace Majinfwork.World {
         [SerializeField] private InputActionAsset inputAsset;
 
         private void OnEnable() {
-            inputAsset.Enable();
+            if (inputAsset != null) {
+                inputAsset.Enable();
+            }
         }
 
         private void OnDisable() {
-            inputAsset.Disable();
+            if (inputAsset != null) {
+                inputAsset.Disable();
+            }
         }
     }
 }
