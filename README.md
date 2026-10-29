@@ -72,7 +72,7 @@ The registered settings are stored with the project settings (the way XR Plug-in
 
 ### **1. World Configuration & Game Modes**
 Whoever loads a level names the GameMode it runs there, like Unreal's `?game=` (`LevelManager.LoadLevelAsync(scene, gameMode)`, `ActivateLevel(scene, gameMode)`, or the `LoadLevel` node's GameMode). One level can then be played in several GameModes, and one GameMode in several levels. A level loaded without one runs the **WorldConfig**'s:
-*   **Map List:** A dictionary-style mapping of scene names to specific **GameModeManagers**.
+*   **Map List:** per scene, its **GameModeManager** (when the loader names none) and its **streaming levels**: the Addressable scenes streamed in on top of it, such as its environment (what is seen, lit and collided with). `LevelManager.StreamingLevelsOf(scene)` gives them to the `LevelStreamer`; whoever travels decides when.
 *   **Default Game Mode:** A fallback mode used for any scene not explicitly listed.
 
 ### **2. Game Mode Manager**
