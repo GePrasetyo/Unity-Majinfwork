@@ -56,7 +56,7 @@ To begin using the framework, you must set up the **World Settings**: the projec
 > [!TIP]
 > **Majingari Framework > Get World Settings** opens that page.
 
-1.  **Create Settings:** on that page, **Create World Settings...** asks for a folder (any folder; it doesn't need to be `Resources`) and creates `GameWorldSettings.asset` there, with working defaults beside it: a `PersistentGameInstance`, a `WorldConfig` with an Addressable default GameMode, and default PlayerController and PlayerState prefabs. To use an asset you already have, pick it in the **World Settings** field instead.
+1.  **Create Settings:** on that page, **Create World Settings...** asks for a folder (any folder; it doesn't need to be `Resources`) and creates `GameWorldSettings.asset` there, with working defaults beside it: a `PersistentGameInstance`, a `WorldConfig` with a default GameMode, and default PlayerController and PlayerState prefabs. To use an asset you already have, pick it in the **World Settings** field instead.
 2.  **Assign Game Instance:** Ensure a **Game Instance** (such as the provided `PersistentGameInstance`) is assigned to the settings asset.
 3.  **Attach World Config:** Create and attach a `WorldConfig` ScriptableObject to define how your scenes behave.
 4.  **Assign Player Prefabs:** Set the **PlayerController** and **PlayerState** prefabs. These are created once at boot and persist for the application lifetime. A network game also sets the **Network Player State** prefab (see [Network Play](#5-network-play)), and may leave the local PlayerState empty when it only plays in sessions.
@@ -71,11 +71,9 @@ The registered settings are stored with the project settings (the way XR Plug-in
 ## 🌍 Core Systems
 
 ### **1. World Configuration & Game Modes**
-Whoever loads a level names the GameMode it runs there, like Unreal's `?game=` (`LevelManager.LoadLevelAsync(scene, gameMode)`, `ActivateLevelAsync(scene, gameMode)`, or the `LoadLevel` node's GameMode). One level can then be played in several GameModes, and one GameMode in several levels. A level loaded without one runs the **WorldConfig**'s:
+Whoever loads a level names the GameMode it runs there, like Unreal's `?game=` (`LevelManager.LoadLevelAsync(scene, gameMode)`, `ActivateLevel(scene, gameMode)`, or the `LoadLevel` node's GameMode). One level can then be played in several GameModes, and one GameMode in several levels. A level loaded without one runs the **WorldConfig**'s:
 *   **Map List:** A dictionary-style mapping of scene names to specific **GameModeManagers**.
 *   **Default Game Mode:** A fallback mode used for any scene not explicitly listed.
-
-Each WorldConfig GameMode (per map, and the default) is either **built in**, a direct reference that loads with the WorldConfig, or **Addressable**, loaded only when its scene activates. Use built in for modes whose content the game keeps loaded anyway (the player, shared configs); use Addressable for a mode with its own heavy content, such as a mini-game. When both are set, the built-in one wins.
 
 ### **2. Game Mode Manager**
 The **GameModeManager** is a ScriptableObject that defines the "rules" for a level. It manages:
@@ -199,8 +197,8 @@ if (GameInstance.Instance.LevelManager.IsLoading) { /* ... */ }
 await GameInstance.Instance.LevelManager.LoadLevelAsync("GameplayScene", arenaMode);
 
 // A level loaded by something else (a network scene manager): hand it over, and its GameMode starts.
-// The newest request wins; asking again for the running level restarts its GameMode (a fresh copy of the level).
-bool active = await GameInstance.Instance.LevelManager.ActivateLevelAsync(loadedSceneName, arenaMode);
+// Asking again for the running level restarts its GameMode (a fresh copy of the level).
+GameInstance.Instance.LevelManager.ActivateLevel(loadedSceneName, arenaMode);
 ```
 
 #### **LevelStreamer (Additive Addressable Scenes)**

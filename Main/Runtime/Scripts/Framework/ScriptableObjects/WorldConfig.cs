@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
+using UnityEngine.Serialization;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -16,11 +16,8 @@ namespace Majinfwork.World {
         [SerializeField] private AddressableSceneHandler[] levelStreamCollection = Array.Empty<AddressableSceneHandler>();
 
         [Header("Default Fallback")]
-        [Tooltip("GameMode used when neither the loader nor the scene names one, built in with this config. " +
-                 "Takes precedence over the Addressable one below.")]
-        [SerializeField] private GameModeManager builtInDefaultGameMode;
-        [Tooltip("GameMode used when neither the loader nor the scene names one. Addressable, loaded on demand.")]
-        [SerializeField] private AssetReferenceT<GameModeManager> defaultGameMode;
+        [Tooltip("GameMode used when neither the loader nor the scene names one.")]
+        [SerializeField, FormerlySerializedAs("builtInDefaultGameMode")] private GameModeManager defaultMode;
 
         // Runtime lookup caches, rebuilt from mapList/levelStreamCollection in SetupSceneConfiguration().
         // Unity 6.6 can serialize dictionaries, so mark these explicitly non-serialized.
@@ -34,8 +31,7 @@ namespace Majinfwork.World {
                  "key falls back to the default loadingHandler above.")]
         [SerializeField] private KeyedLoadingStreamer[] keyedLoadingStreamers = System.Array.Empty<KeyedLoadingStreamer>();
 
-        public GameModeManager BuiltInDefaultGameMode => builtInDefaultGameMode;
-        public AssetReferenceT<GameModeManager> DefaultGameMode => defaultGameMode;
+        public GameModeManager DefaultGameMode => defaultMode;
 
         public void SetupSceneConfiguration() {
             loadingHandler.Initialize();
@@ -90,13 +86,7 @@ namespace Majinfwork.World {
         public SceneAsset Map;
 #endif
         public string mapName;
-        // Built in — the GameModeManager and its dependency chain load with this config. For modes that share their
-        // content with what the game keeps loaded anyway. Takes precedence over TheGameMode.
-        public GameModeManager BuiltInGameMode;
-        // Addressable — the GameModeManager and its dependency chain (HUD, pawn, input
-        // prefabs) only load when this scene is activated, keeping a mini-game's assets
-        // out of boot.
-        public AssetReferenceT<GameModeManager> TheGameMode;
+        [FormerlySerializedAs("BuiltInGameMode")] public GameModeManager gameMode;
     }
 
     [Serializable]

@@ -1,14 +1,12 @@
 using System.IO;
 using UnityEditor;
-using UnityEditor.AddressableAssets;
-using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
 
 namespace Majinfwork.World {
     /// <summary>
     /// Creates a project's world settings with working defaults next to them: a persistent game instance, default
-    /// PlayerController and PlayerState, and a WorldConfig whose default GameMode (made Addressable, as GameModes load) has a
-    /// default GameState, HUD, PlayerInput, camera handler and pawn.
+    /// PlayerController and PlayerState, and a WorldConfig whose default GameMode has a default GameState, HUD, PlayerInput,
+    /// camera handler and pawn.
     /// </summary>
     internal static class GameWorldSettingsCreator {
         private const string DefaultFolder = "Assets/Settings";
@@ -75,15 +73,9 @@ namespace Majinfwork.World {
 
         private static WorldConfig CreateWorldConfig(string folder, GameModeManager defaultMode) {
             var world = LoadOrCreate<WorldConfig>($"{folder}/Default WorldConfig.asset");
-
-            // GameModes load through Addressables, so the default one is an Addressable entry.
-            AddressableAssetSettings addressables = AddressableAssetSettingsDefaultObject.GetSettings(true);
-            string guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(defaultMode));
-            addressables.CreateOrMoveEntry(guid, addressables.DefaultGroup);
-
             var serialized = new SerializedObject(world);
             serialized.FindProperty("loadingHandler").managedReferenceValue = new LoadingStreamerDefault();
-            serialized.FindProperty("defaultGameMode.m_AssetGUID").stringValue = guid;
+            serialized.FindProperty("defaultMode").objectReferenceValue = defaultMode;
             serialized.ApplyModifiedPropertiesWithoutUndo();
             return world;
         }
