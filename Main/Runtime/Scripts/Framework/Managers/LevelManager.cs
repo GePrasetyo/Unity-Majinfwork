@@ -68,7 +68,7 @@ namespace Majinfwork.World {
                 }
 
                 requests++;
-                ActivateGameMode(targetTemplate, targetHandle);
+                ActivateGameMode(sceneName, targetTemplate, targetHandle);
 
                 CurrentSceneName = sceneName;
                 Debug.Log($"[LevelManager] Level ready: {sceneName}");
@@ -106,7 +106,7 @@ namespace Majinfwork.World {
                 }
 
                 DeactivateCurrentGameMode();
-                ActivateGameMode(targetTemplate, targetHandle);
+                ActivateGameMode(sceneName, targetTemplate, targetHandle);
                 CurrentSceneName = sceneName;
                 Debug.Log($"[LevelManager] Level ready: {sceneName}");
                 return true;
@@ -202,7 +202,7 @@ namespace Majinfwork.World {
         /// asset stays loaded for the lifetime of the active GameMode and is released
         /// cleanly on the next deactivation.
         /// </summary>
-        private void ActivateGameMode(GameModeManager targetTemplate,
+        private void ActivateGameMode(string sceneName, GameModeManager targetTemplate,
             AsyncOperationHandle<GameModeManager> targetHandle) {
 
             if (targetTemplate != null) {
@@ -211,7 +211,7 @@ namespace Majinfwork.World {
                 currentGameModeTemplate = targetTemplate;
                 currentGameModeHandle = targetHandle;
                 hasCurrentHandle = targetHandle.IsValid();
-                currentGameMode.OnActive();
+                currentGameMode.OnActive(sceneName);
             }
             else {
                 Debug.LogWarning("[LevelManager] No GameMode for this level.");

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Majinfwork.World {
     /// <summary>
     /// Static utility class for easy access to player components.
@@ -58,6 +60,18 @@ namespace Majinfwork.World {
         public static bool TryGetMainPlayerState<T>(out T state) where T : PlayerState {
             state = GetMainPlayerState<T>();
             return state != null;
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // Online players (a network session's)
+        // ─────────────────────────────────────────────────────────────────
+
+        /// <summary>Every player in the network session, connected or kept for their return (empty outside a session).</summary>
+        public static IReadOnlyList<PlayerState> OnlinePlayers => PlayerManager.OnlinePlayers;
+
+        /// <summary>The online player <paramref name="clientId"/> plays, or null.</summary>
+        public static T GetOnlinePlayer<T>(ulong clientId) where T : PlayerState {
+            return PlayerManager.FindOnline(clientId) as T;
         }
 
         // ─────────────────────────────────────────────────────────────────

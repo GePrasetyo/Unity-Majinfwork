@@ -18,6 +18,8 @@ The Majingari Framework is a modular foundation designed to streamline game init
   - [World Configuration & Game Modes](#1-world-configuration--game-modes)
   - [Game Mode Manager](#2-game-mode-manager)
   - [Player System](#3-player-system)
+  - [Game State](#4-game-state)
+  - [Network Play](#5-network-play)
 - [Advanced Features](#️-advanced-features)
   - [Cross-Scene References](#-cross-scene-references)
   - [Level Streaming & Loading](#-level-streaming--loading)
@@ -37,9 +39,9 @@ The framework adopts Unreal's decoupled architecture, separating data, rules, an
 | Feature | Unreal Engine Equivalent | Majingari Framework | Lifetime |
 | :--- | :--- | :--- | :--- |
 | **Global Manager** | `GameInstance` | `GameInstance` | Application |
-| **Scene Rules** | `GameMode` | `GameModeManager` | Per-Scene |
+| **Level Rules** | `GameMode` | `GameModeManager` | Per-Level |
 | **Input & Logic** | `PlayerController` | `PlayerController` | **Persistent** |
-| **Player Data** | `PlayerState` | `PlayerState` | **Persistent** |
+| **Player Data** | `PlayerState` | `PlayerState` | **Persistent** (local) / Per-Session (online) |
 | **Physical Body** | `Pawn` | `Pawn` / `PlayerPawn` | Per-GameMode |
 | **Input Handler** | `PlayerInput` | `PlayerInput` | Per-GameMode |
 | **HUD** | `HUD` | `HUD` | Per-GameMode |
@@ -57,7 +59,7 @@ To begin using the framework, you must set up the **World Settings**: the projec
 1.  **Create Settings:** on that page, **Create World Settings...** asks for a folder (any folder; it doesn't need to be `Resources`) and creates `GameWorldSettings.asset` there, with working defaults beside it: a `PersistentGameInstance`, a `WorldConfig` with an Addressable default GameMode, and default PlayerController and PlayerState prefabs. To use an asset you already have, pick it in the **World Settings** field instead.
 2.  **Assign Game Instance:** Ensure a **Game Instance** (such as the provided `PersistentGameInstance`) is assigned to the settings asset.
 3.  **Attach World Config:** Create and attach a `WorldConfig` ScriptableObject to define how your scenes behave.
-4.  **Assign Player Prefabs:** Set the **PlayerController** and **PlayerState** prefabs. These are created once at boot and persist for the application lifetime.
+4.  **Assign Player Prefabs:** Set the **PlayerController** and **PlayerState** prefabs. These are created once at boot and persist for the application lifetime. A network game also sets the **Network Player State** prefab (see [Network Play](#5-network-play)), and may leave the local PlayerState empty when it only plays in sessions.
 5.  **PSO Warmup (optional):** **Majingari Framework > Create PSO Warmup Config** creates one next to the settings and sets it on them.
 
 The registered settings are stored with the project settings (the way XR Plug-in Management stores its settings). Every player build carries them as a preloaded asset, so they are loaded before the first scene and the framework boots from them; a build without settings fails. A project upgraded from an older version (settings in `Resources`) has its one `GameWorldSettings` registered automatically; move it out of `Resources` afterwards, or a build ships it twice.
@@ -69,19 +71,21 @@ The registered settings are stored with the project settings (the way XR Plug-in
 ## 🌍 Core Systems
 
 ### **1. World Configuration & Game Modes**
-The framework uses a "Map-to-Mode" architecture. You define a **WorldConfig** asset, which contains:
+Whoever loads a level names the GameMode it runs there, like Unreal's `?game=` (`LevelManager.LoadLevelAsync(scene, gameMode)`, `ActivateLevelAsync(scene, gameMode)`, or the `LoadLevel` node's GameMode). One level can then be played in several GameModes, and one GameMode in several levels. A level loaded without one runs the **WorldConfig**'s:
 *   **Map List:** A dictionary-style mapping of scene names to specific **GameModeManagers**.
 *   **Default Game Mode:** A fallback mode used for any scene not explicitly listed.
 
-Each GameMode (per map, and the default) is either **built in**, a direct reference that loads with the WorldConfig, or **Addressable**, loaded only when its scene activates. Use built in for modes whose content the game keeps loaded anyway (the player, shared configs); use Addressable for a mode with its own heavy content, such as a mini-game. When both are set, the built-in one wins.
+Each WorldConfig GameMode (per map, and the default) is either **built in**, a direct reference that loads with the WorldConfig, or **Addressable**, loaded only when its scene activates. Use built in for modes whose content the game keeps loaded anyway (the player, shared configs); use Addressable for a mode with its own heavy content, such as a mini-game. When both are set, the built-in one wins.
 
 ### **2. Game Mode Manager**
-The **GameModeManager** is a ScriptableObject that defines the "rules" for a specific scene. It manages:
+The **GameModeManager** is a ScriptableObject that defines the "rules" for a level. It manages:
 *   **Managers:** Automatically instantiates your `GameState` prefab.
 *   **Per-GameMode Components:** Spawns **PlayerPawn**, **PlayerInput**, and **HUD** for each player when the mode activates, and cleans them up when it deactivates.
 *   **Camera Logic:** Assigns a **CameraHandler** to manage the player's view.
 
 When transitioning between GameModes, persistent components (Controller + State) survive while per-GameMode components (Pawn, Input, HUD) are destroyed and recreated by the new GameMode.
+
+A subclass starts and ends its game in `StartPlay()` and `EndPlay()` (every peer).
 
 > [!NOTE]
 > **PlayerController** and **PlayerState** prefabs are defined in **GameWorldSettings** and spawned once at boot. GameModeManager only sets up per-mode components (Pawn, Input, HUD) for players that already exist.
@@ -147,6 +151,25 @@ Player 0 is spawned automatically at boot, once the save system has loaded the s
 var newController = GameInstance.Instance<MyGame>().SpawnPlayer();
 ```
 
+### **4. Game State**
+The **GameState** holds the state of the game a GameMode runs, for everyone to read: where its rules are (a phase, its timers) and their data (score...). The GameMode makes it when it starts and removes it when it ends; it is resolvable from the `ServiceLocator` (`GameState`) while it is here. It holds state, not gameplay: whatever runs the rules writes it.
+
+### **5. Network Play**
+With Netcode for GameObjects in the project (`HAS_NETCODE`), the GameMode, GameState and PlayerState support network sessions. `GameState` and `PlayerState` derive from `NetworkActor`, a `NetworkBehaviour`, so they carry replicated state (`NetworkVariable`s, RPCs).
+
+A GameMode started while a session runs plays in it, the server as its authority (start the session before the GameMode; one started outside a session plays on this device alone):
+*   **GameState:** the server spawns it (its prefab is a `NetworkObject` registered with the `NetworkManager`); every peer receives it.
+*   **Players:** each player who joins gets their **online PlayerState** (`Login`; the world settings' *Network Player State*), kept for the whole session through every level. Every peer has them all (`PlayerAccessor.OnlinePlayers`, `GetOnlinePlayer<T>(clientId)`), and the one this device plays is its PlayerController's `State` while the session lasts (`StateChanged` says when).
+*   **Server hooks:** `OnPlayerJoined` (in the session while this GameMode runs), `OnPlayerArrived` (their device has started this GameMode too: spawn what they play with, like Unreal's `HandleStartingNewPlayer`), `OnPlayerLeft` (their state goes by default; `KeepForReturn` keeps it, and an overridden `Login` gives a returning player theirs back with `Reconnect`), `OnSessionEnded`.
+
+```csharp
+public class ArenaMode : GameModeManager {
+    protected override void OnPlayerArrived(PlayerState player) {
+        SpawnAvatarFor((MyPlayerState)player);   // server only, like every player hook
+    }
+}
+```
+
 ---
 
 ## 🛠️ Advanced Features
@@ -172,9 +195,12 @@ await GameInstance.Instance.LevelManager.LoadLevelAsync("GameplayScene");
 // Check loading state
 if (GameInstance.Instance.LevelManager.IsLoading) { /* ... */ }
 
+// Name the GameMode it runs (none: the WorldConfig's for the scene)
+await GameInstance.Instance.LevelManager.LoadLevelAsync("GameplayScene", arenaMode);
+
 // A level loaded by something else (a network scene manager): hand it over, and its GameMode starts.
 // The newest request wins; asking again for the running level restarts its GameMode (a fresh copy of the level).
-bool active = await GameInstance.Instance.LevelManager.ActivateLevelAsync(loadedSceneName);
+bool active = await GameInstance.Instance.LevelManager.ActivateLevelAsync(loadedSceneName, arenaMode);
 ```
 
 #### **LevelStreamer (Additive Addressable Scenes)**

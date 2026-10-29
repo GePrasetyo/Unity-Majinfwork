@@ -55,7 +55,12 @@ namespace Majinfwork.World {
         private static GameModeManager CreateGameMode(string folder) {
             var mode = LoadOrCreate<GameModeManager>($"{folder}/Default GameMode.asset");
             var serialized = new SerializedObject(mode);
+#if HAS_NETCODE
+            // Spawnable in a network session (once registered with the NetworkManager); outside one it runs locally.
+            serialized.FindProperty("gameState").objectReferenceValue = DefaultPrefab<GameState>(folder, "Default GameState", typeof(Unity.Netcode.NetworkObject));
+#else
             serialized.FindProperty("gameState").objectReferenceValue = DefaultPrefab<GameState>(folder, "Default GameState");
+#endif
             serialized.FindProperty("hudPrefab").objectReferenceValue = DefaultPrefab<HUD>(folder, "Default HUD");
             serialized.FindProperty("playerInputPrefab").objectReferenceValue = DefaultPrefab<PlayerInput>(folder, "Default PlayerInput");
             serialized.FindProperty("cameraHandler").managedReferenceValue = new CameraHandlerNone();
@@ -93,14 +98,15 @@ namespace Majinfwork.World {
             return asset;
         }
 
-        private static T DefaultPrefab<T>(string folder, string name) where T : Component {
+        private static T DefaultPrefab<T>(string folder, string name, params System.Type[] with) where T : Component {
             string path = $"{folder}/{name}.prefab";
             var existing = AssetDatabase.LoadAssetAtPath<T>(path);
             if (existing != null) {
                 return existing;
             }
 
-            var root = new GameObject(name, typeof(T));
+            var root = new GameObject(name, with);
+            root.AddComponent<T>();
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
             Object.DestroyImmediate(root);
             return prefab.GetComponent<T>();

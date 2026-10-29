@@ -5,15 +5,23 @@ namespace Majinfwork.World {
     /// <summary>
     /// Owns all persistent PlayerControllers and PlayerStates.
     /// These persist across GameMode transitions — only Pawn, Input, HUD are per-GameMode.
+    /// In a network session it also keeps every online player's state, for as long as the session spawns it.
     /// </summary>
     internal static class PlayerManager {
         private static readonly List<PlayerController> players = new();
+        private static readonly List<PlayerState> onlinePlayers = new();
 
         private static PlayerController controllerPrefab;
         private static PlayerState statePrefab;
 
         public static int PlayerCount => players.Count;
         public static IReadOnlyList<PlayerController> AllPlayers => players;
+
+        /// <summary>Every online player's state on this peer (empty outside a network session).</summary>
+        public static IReadOnlyList<PlayerState> OnlinePlayers => onlinePlayers;
+
+        /// <summary>Each player's state in a network session, spawned by the server's GameMode for every player who joins.</summary>
+        public static PlayerState NetworkStatePrefab { get; set; }
 
         /// <summary>
         /// Called by GameWorldSettings during boot to provide persistent player prefabs.
@@ -31,11 +39,14 @@ namespace Majinfwork.World {
             int index = playerIndex ?? players.Count;
 
             var controller = Object.Instantiate(controllerPrefab);
-            var state = Object.Instantiate(statePrefab);
-            state.OnCreated();
-
             Object.DontDestroyOnLoad(controller.gameObject);
-            Object.DontDestroyOnLoad(state.gameObject);
+
+            // A game whose players' states all come from its network sessions has no local one.
+            var state = statePrefab != null ? Object.Instantiate(statePrefab) : null;
+            if (state != null) {
+                state.OnCreated();
+                Object.DontDestroyOnLoad(state.gameObject);
+            }
 
             controller.InitializePersistent(state);
             RegisterPlayer(controller);
@@ -82,7 +93,7 @@ namespace Majinfwork.World {
 
             UnregisterPlayer(controller);
 
-            if (controller.State != null) Object.Destroy(controller.State.gameObject);
+            if (controller.LocalState != null) Object.Destroy(controller.LocalState.gameObject);
             Object.Destroy(controller.gameObject);
         }
 
@@ -94,10 +105,43 @@ namespace Majinfwork.World {
                 var controller = players[i];
                 if (controller == null) continue;
 
-                if (controller.State != null) Object.Destroy(controller.State.gameObject);
+                if (controller.LocalState != null) Object.Destroy(controller.LocalState.gameObject);
                 Object.Destroy(controller.gameObject);
             }
             players.Clear();
+        }
+
+        /// <summary>The online player <paramref name="clientId"/> plays, or null.</summary>
+        public static PlayerState FindOnline(ulong clientId) {
+#if HAS_NETCODE
+            foreach (PlayerState state in onlinePlayers) {
+                if (state.IsConnected && state.ClientId == clientId) return state;
+            }
+#endif
+            return null;
+        }
+
+        /// <summary>An online player's state spawned here.</summary>
+        internal static void AddOnline(PlayerState state) {
+            onlinePlayers.Add(state);
+            RefreshOnline(state);
+        }
+
+        /// <summary>An online player's state went (the player left for good, or the session ended).</summary>
+        internal static void RemoveOnline(PlayerState state) {
+            onlinePlayers.Remove(state);
+            GetPlayer(0)?.UnbindOnline(state);
+        }
+
+        /// <summary>The first local player plays the online state of this device's client (one local player per client online).</summary>
+        internal static void RefreshOnline(PlayerState state) {
+#if HAS_NETCODE
+            PlayerController local = GetPlayer(0);
+            if (local == null) return;
+
+            if (state.IsLocalPlayer) local.BindOnline(state);
+            else local.UnbindOnline(state);
+#endif
         }
 
         /// <summary>

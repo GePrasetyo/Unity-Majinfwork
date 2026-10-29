@@ -5,7 +5,8 @@
         "GUID:5ae0b8f61355378439f76ca163caef2a",
         "Unity.Addressables",
         "Unity.Addressables.Editor",
-        "MStateGraph"
+        "MStateGraph",
+        "Unity.Netcode.Runtime"
     ],
     "includePlatforms": [
         "Editor"
@@ -21,6 +22,11 @@
             "name": "com.majingari.stategraph",
             "expression": "",
             "define": "HAS_STATEGRAPH"
+        },
+        {
+            "name": "com.unity.netcode.gameobjects",
+            "expression": "",
+            "define": "HAS_NETCODE"
         }
     ],
     "noEngineReferences": false

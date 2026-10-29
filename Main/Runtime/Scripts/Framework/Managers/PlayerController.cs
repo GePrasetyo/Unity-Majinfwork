@@ -1,14 +1,27 @@
+using System;
+
 namespace Majinfwork.World {
     /// <summary>
     /// Central controller for a player. Persists across GameMode transitions.
     /// Controller + State are persistent. Input, Pawn, HUD are equipped per GameMode.
     /// </summary>
     public class PlayerController : Actor {
+        private PlayerState localState;
+
         /// <summary>Player input handler (per GameMode)</summary>
         public PlayerInput Input { get; private set; }
 
-        /// <summary>Player state data (persistent)</summary>
+        /// <summary>
+        /// The player's state: in a network session, the online one this device plays; otherwise the local one made with
+        /// this controller (none in a game whose players' states all come from its sessions).
+        /// </summary>
         public PlayerState State { get; private set; }
+
+        /// <summary>Raised when <see cref="State"/> changes: the player's online state became theirs for a session, or went with it.</summary>
+        public event Action StateChanged;
+
+        /// <summary>The local state made with this controller (null when the game has none).</summary>
+        internal PlayerState LocalState => localState;
 
         /// <summary>Player HUD (per GameMode)</summary>
         public HUD HUD { get; private set; }
@@ -24,7 +37,24 @@ namespace Majinfwork.World {
         /// Called once when the player is first created.
         /// </summary>
         internal void InitializePersistent(PlayerState state) {
+            localState = state;
             State = state;
+        }
+
+        /// <summary>This device plays <paramref name="online"/> for the session.</summary>
+        internal void BindOnline(PlayerState online) {
+            if (State == online) return;
+
+            State = online;
+            StateChanged?.Invoke();
+        }
+
+        /// <summary><paramref name="online"/> is no longer this device's (it left, or the session ended): back to the local state.</summary>
+        internal void UnbindOnline(PlayerState online) {
+            if (State != online) return;
+
+            State = localState;
+            StateChanged?.Invoke();
         }
 
         /// <summary>

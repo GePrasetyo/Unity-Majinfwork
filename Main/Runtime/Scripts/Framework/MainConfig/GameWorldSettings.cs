@@ -25,7 +25,14 @@ namespace Majinfwork.World {
 
         [Header("Player Setup")]
         [SerializeField] private PlayerController playerControllerPrefab;
+        [Tooltip("A local player's state, made with their controller and kept for the whole game. None in a game whose " +
+                 "players' states all come from its network sessions.")]
         [SerializeField] private PlayerState playerStatePrefab;
+#if HAS_NETCODE
+        [Tooltip("Each player's state in a network session, spawned by the server's GameMode for every player who joins: a " +
+                 "NetworkObject prefab registered with the NetworkManager.")]
+        [SerializeField] private PlayerState networkPlayerStatePrefab;
+#endif
 
         [Header("Save System")]
         [SerializeField] private bool enableSaveSystem = true;
@@ -138,6 +145,9 @@ namespace Majinfwork.World {
 
             // Then do work that may depend on them (PlayerState.OnCreated resolves GameInstance).
             PlayerManager.Initialize(instance.playerControllerPrefab, instance.playerStatePrefab);
+#if HAS_NETCODE
+            PlayerManager.NetworkStatePrefab = instance.networkPlayerStatePrefab;
+#endif
             PlayerManager.SpawnPlayer();
 
             instance.classGameInstance.Construct(instance.worldConfigObject);

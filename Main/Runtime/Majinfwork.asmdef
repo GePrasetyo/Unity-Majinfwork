@@ -6,7 +6,8 @@
         "GUID:84651a3751eca9349aac36a66bba901b",
         "GUID:75469ad4d38634e559750d17036d5f7c",
         "GUID:38a683d75f44ae744906674447fb44e3",
-        "GUID:ff1f59257b3fca54c8400d4dc87ada90"
+        "GUID:ff1f59257b3fca54c8400d4dc87ada90",
+        "GUID:1491147abca9d7d4bb7105af628b223e"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -25,6 +26,11 @@
             "name": "com.unity.multiplayer.playmode",
             "expression": "",
             "define": "HAS_MPPM"
+        },
+        {
+            "name": "com.unity.netcode.gameobjects",
+            "expression": "",
+            "define": "HAS_NETCODE"
         }
     ],
     "noEngineReferences": false
