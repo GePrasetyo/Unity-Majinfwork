@@ -35,6 +35,7 @@ namespace Majinfwork.World {
             serialized.FindProperty("worldConfigObject").objectReferenceValue = world;
             serialized.FindProperty("playerControllerPrefab").objectReferenceValue = DefaultPrefab<PlayerController>(folder, "Default PlayerController");
             serialized.FindProperty("playerStatePrefab").objectReferenceValue = DefaultPrefab<PlayerState>(folder, "Default PlayerState");
+            serialized.FindProperty("hudPrefab").objectReferenceValue = DefaultPrefab<HUD>(folder, "Default HUD");
             serialized.ApplyModifiedPropertiesWithoutUndo();
 #if HAS_STATEGRAPH
             // The game instance exists only once applied; its state machine is set on it afterwards.
@@ -59,7 +60,6 @@ namespace Majinfwork.World {
 #else
             serialized.FindProperty("gameState").objectReferenceValue = DefaultPrefab<GameState>(folder, "Default GameState");
 #endif
-            serialized.FindProperty("hudPrefab").objectReferenceValue = DefaultPrefab<HUD>(folder, "Default HUD");
             serialized.FindProperty("playerInputPrefab").objectReferenceValue = DefaultPrefab<PlayerInput>(folder, "Default PlayerInput");
             serialized.FindProperty("cameraHandler").managedReferenceValue = new CameraHandlerNone();
             serialized.FindProperty("pawnProvider").managedReferenceValue = new DefaultPawnProvider();

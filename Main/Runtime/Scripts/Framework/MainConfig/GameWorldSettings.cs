@@ -10,7 +10,7 @@ using UnityEditor;
 namespace Majinfwork.World {
     /// <summary>
     /// The project's world settings: the GameInstance that runs the app, the WorldConfig (each scene's GameMode), the
-    /// persistent PlayerController and PlayerState, the save system and the PSO warmup. Like Unreal's Maps &amp; Modes project
+    /// persistent PlayerController and PlayerState, the game's HUD, the save system and the PSO warmup. Like Unreal's Maps &amp; Modes project
     /// settings there is exactly one per project: the asset registered in Project Settings &gt; Majingari Framework, which can
     /// live in any folder. A build carries it as a preloaded asset, so it is loaded before the first scene and the framework
     /// boots from it; in the editor the registered asset is used directly.
@@ -33,6 +33,11 @@ namespace Majinfwork.World {
                  "NetworkObject prefab registered with the NetworkManager.")]
         [SerializeField] private PlayerState networkPlayerStatePrefab;
 #endif
+
+        [Header("HUD")]
+        [Tooltip("The game's UI, made once at boot after the GameInstance has started, and kept for the whole game (none: a " +
+                 "game without UI).")]
+        [SerializeField] private HUD hudPrefab;
 
         [Header("Save System")]
         [SerializeField] private bool enableSaveSystem = true;
@@ -151,6 +156,8 @@ namespace Majinfwork.World {
             PlayerManager.SpawnPlayer();
 
             instance.classGameInstance.Construct(instance.worldConfigObject);
+            // After the GameInstance has started: what the HUD's components look up as they wake is registered by then.
+            HUD.Create(instance.hudPrefab);
         }
 
         private static async Task InitializeSaveServiceAsync(SaveDataService saveService, int slotIndex) {
@@ -172,6 +179,7 @@ namespace Majinfwork.World {
         }
 
         private void OnGameQuit() {
+            HUD.Release();
             ServiceLocator.Unregister<GameInstance>(out string message);
             PlayerManager.DestroyAll();
             classGameInstance.Deconstruct();

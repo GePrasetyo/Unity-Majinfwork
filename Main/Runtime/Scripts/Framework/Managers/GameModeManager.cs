@@ -10,8 +10,8 @@ namespace Majinfwork.World {
     /// The rules of the game played in a level, and the setup of its players there. Whoever loads the level names it (or
     /// the WorldConfig does); it runs as long as the level does.
     /// <para>
-    /// On every peer it makes its GameState and camera handler and equips this device's players for it: their input, pawn
-    /// and HUD (their controllers and states are kept across GameModes).
+    /// On every peer it makes its GameState and camera handler and equips this device's players for it: their input and
+    /// pawn (their controllers and states are kept across GameModes). The game's UI is the HUD's, kept for the whole game.
     /// </para>
     /// <para>
     /// A GameMode started while a network session runs (Netcode) plays in it, the server as its authority: the server
@@ -33,7 +33,6 @@ namespace Majinfwork.World {
         [SerializeReference, ClassReference] private PawnProvider pawnProvider;
         [Tooltip("Optional: none when the game reads its input elsewhere (an XR rig's own input).")]
         [SerializeField] private PlayerInput playerInputPrefab;
-        [SerializeField] private HUD hudPrefab;
 
         [Header("Camera")]
         [SerializeReference, ClassReference] private CameraHandler cameraHandler;
@@ -76,7 +75,7 @@ namespace Majinfwork.World {
             CleanupGameManager();
             cameraHandler.Deconstruct();
 
-            // Cleanup GameMode-owned components (Pawn, Input, HUD) but keep Controller + State alive
+            // Cleanup GameMode-owned components (Pawn, Input) but keep Controller + State alive
             for (int i = spawnedControllers.Count - 1; i >= 0; i--) {
                 CleanupPlayerFromGameMode(spawnedControllers[i]);
             }
@@ -127,7 +126,7 @@ namespace Majinfwork.World {
         }
 
         /// <summary>
-        /// Sets up a persistent PlayerController with this GameMode's Input, Pawn, and HUD.
+        /// Sets up a persistent PlayerController with this GameMode's Input and Pawn.
         /// Called on GameMode activation for existing players.
         /// </summary>
         private void SetupPlayerForGameMode(PlayerController controller) {
@@ -141,25 +140,22 @@ namespace Majinfwork.World {
             // Create GameMode-owned components
             var input = playerInputPrefab != null ? Instantiate(playerInputPrefab) : null;
             var pawn = pawnProvider.GetPawn(controller.State, spawnPos, spawnRot);
-            var hud = hudPrefab != null ? Instantiate(hudPrefab) : null;
 
             // Mark as DontDestroyOnLoad so we control lifecycle, not scene unload
             if (input != null) DontDestroyOnLoad(input.gameObject);
             DontDestroyOnLoad(pawn.gameObject);
-            if (hud != null) DontDestroyOnLoad(hud.gameObject);
 
-            controller.SetupForGameMode(input, pawn, hud);
+            controller.SetupForGameMode(input, pawn);
         }
 
         /// <summary>
-        /// Cleans up GameMode-owned components (Input, Pawn, HUD) from a controller.
+        /// Cleans up GameMode-owned components (Input, Pawn) from a controller.
         /// Controller and State remain alive.
         /// </summary>
         private void CleanupPlayerFromGameMode(PlayerController controller) {
             if (controller == null) return;
 
             if (controller.Input != null) Destroy(controller.Input.gameObject);
-            if (controller.HUD != null) Destroy(controller.HUD.gameObject);
             if (controller.CurrentPawn != null) pawnProvider.ReleasePawn(controller.CurrentPawn);
 
             controller.CleanupFromGameMode();

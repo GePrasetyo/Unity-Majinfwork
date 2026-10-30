@@ -6,8 +6,9 @@ using UnityEngine;
 
 namespace Majinfwork.World {
     /// <summary>
-    /// Lightweight HUD locator owned by PlayerController.
-    /// Provides static API for easy access with optional player index.
+    /// The game's UI: its widgets, made on first use and kept, with an optional navigation stack. There is one, made at boot
+    /// from the world settings and kept for the whole game, like the GameInstance: it belongs to no GameMode or player.
+    /// Whatever shows UI (the game's state machine, a presenter) does so through the static API.
     /// </summary>
     public class HUD : GameComponent {
         [SerializeField] private UIWidget[] widgetPrefabs;
@@ -21,58 +22,58 @@ namespace Majinfwork.World {
         #region Static API - Core
 
         /// <summary>
-        /// Get a widget by type for specified player.
+        /// Get a widget by type on the HUD.
         /// </summary>
-        public static T Get<T>(int playerIndex = 0) where T : UIWidget {
-            var hud = GetHUD(playerIndex);
+        public static T Get<T>() where T : UIWidget {
+            var hud = current;
             return hud?.GetWidget<T>();
         }
 
         /// <summary>
-        /// Show a widget for specified player.
+        /// Show a widget on the HUD.
         /// </summary>
-        public static void Show<T>(Action<T> setup = null, int playerIndex = 0) where T : UIWidget {
-            var hud = GetHUD(playerIndex);
+        public static void Show<T>(Action<T> setup = null) where T : UIWidget {
+            var hud = current;
             hud?.ShowWidget(setup);
         }
 
         /// <summary>
         /// Show a widget asynchronously.
         /// </summary>
-        public static Task ShowAsync<T>(Action<T> setup = null, int playerIndex = 0, CancellationToken cancellationToken = default) where T : UIWidget {
-            var hud = GetHUD(playerIndex);
+        public static Task ShowAsync<T>(Action<T> setup = null, CancellationToken cancellationToken = default) where T : UIWidget {
+            var hud = current;
             return hud?.ShowWidgetAsync(setup, cancellationToken) ?? Task.CompletedTask;
         }
 
         /// <summary>
-        /// Hide a widget for specified player.
+        /// Hide a widget on the HUD.
         /// </summary>
-        public static void Hide<T>(Action<T> onHide = null, int playerIndex = 0) where T : UIWidget {
-            var hud = GetHUD(playerIndex);
+        public static void Hide<T>(Action<T> onHide = null) where T : UIWidget {
+            var hud = current;
             hud?.HideWidget(onHide);
         }
 
         /// <summary>
         /// Hide a widget asynchronously.
         /// </summary>
-        public static Task HideAsync<T>(Action<T> onHide = null, int playerIndex = 0, CancellationToken cancellationToken = default) where T : UIWidget {
-            var hud = GetHUD(playerIndex);
+        public static Task HideAsync<T>(Action<T> onHide = null, CancellationToken cancellationToken = default) where T : UIWidget {
+            var hud = current;
             return hud?.HideWidgetAsync(onHide, cancellationToken) ?? Task.CompletedTask;
         }
 
         /// <summary>
-        /// Hide all widgets for specified player.
+        /// Hide all widgets on the HUD.
         /// </summary>
-        public static void HideAll(int playerIndex = 0) {
-            var hud = GetHUD(playerIndex);
+        public static void HideAll() {
+            var hud = current;
             hud?.HideAllWidgets();
         }
 
         /// <summary>
         /// Hide all widgets asynchronously.
         /// </summary>
-        public static Task HideAllAsync(int playerIndex = 0, CancellationToken cancellationToken = default) {
-            var hud = GetHUD(playerIndex);
+        public static Task HideAllAsync(CancellationToken cancellationToken = default) {
+            var hud = current;
             return hud?.HideAllWidgetsAsync(cancellationToken) ?? Task.CompletedTask;
         }
 
@@ -83,36 +84,36 @@ namespace Majinfwork.World {
         /// <summary>
         /// Show a widget and setup with model data.
         /// </summary>
-        public static void Show<TWidget, TModel>(TModel model, int playerIndex = 0)
+        public static void Show<TWidget, TModel>(TModel model)
             where TWidget : UIWidget<TModel> {
-            var hud = GetHUD(playerIndex);
+            var hud = current;
             hud?.ShowWidgetWithModel<TWidget, TModel>(model);
         }
 
         /// <summary>
         /// Show a widget with model asynchronously.
         /// </summary>
-        public static Task ShowAsync<TWidget, TModel>(TModel model, int playerIndex = 0, CancellationToken cancellationToken = default)
+        public static Task ShowAsync<TWidget, TModel>(TModel model, CancellationToken cancellationToken = default)
             where TWidget : UIWidget<TModel> {
-            var hud = GetHUD(playerIndex);
+            var hud = current;
             return hud?.ShowWidgetWithModelAsync<TWidget, TModel>(model, cancellationToken) ?? Task.CompletedTask;
         }
 
         /// <summary>
         /// Push a widget with model onto navigation stack.
         /// </summary>
-        public static void Push<TWidget, TModel>(TModel model, int playerIndex = 0)
+        public static void Push<TWidget, TModel>(TModel model)
             where TWidget : UIWidget<TModel> {
-            var hud = GetHUD(playerIndex);
+            var hud = current;
             hud?.PushWidgetWithModel<TWidget, TModel>(model);
         }
 
         /// <summary>
         /// Push a widget with model asynchronously.
         /// </summary>
-        public static Task PushAsync<TWidget, TModel>(TModel model, int playerIndex = 0, CancellationToken cancellationToken = default)
+        public static Task PushAsync<TWidget, TModel>(TModel model, CancellationToken cancellationToken = default)
             where TWidget : UIWidget<TModel> {
-            var hud = GetHUD(playerIndex);
+            var hud = current;
             return hud?.PushWidgetWithModelAsync<TWidget, TModel>(model, cancellationToken) ?? Task.CompletedTask;
         }
 
@@ -123,64 +124,64 @@ namespace Majinfwork.World {
         /// <summary>
         /// Push a new widget onto the navigation stack.
         /// </summary>
-        public static void Push<T>(Action<T> setup = null, int playerIndex = 0) where T : UIWidget {
-            var hud = GetHUD(playerIndex);
+        public static void Push<T>(Action<T> setup = null) where T : UIWidget {
+            var hud = current;
             hud?.PushWidget(setup);
         }
 
         /// <summary>
         /// Push a new widget asynchronously.
         /// </summary>
-        public static Task PushAsync<T>(Action<T> setup = null, int playerIndex = 0, CancellationToken cancellationToken = default) where T : UIWidget {
-            var hud = GetHUD(playerIndex);
+        public static Task PushAsync<T>(Action<T> setup = null, CancellationToken cancellationToken = default) where T : UIWidget {
+            var hud = current;
             return hud?.PushWidgetAsync(setup, cancellationToken) ?? Task.CompletedTask;
         }
 
         /// <summary>
         /// Go back to the previous widget in the navigation stack.
         /// </summary>
-        public static void Back(int playerIndex = 0) {
-            var hud = GetHUD(playerIndex);
+        public static void Back() {
+            var hud = current;
             hud?.GoBack();
         }
 
         /// <summary>
         /// Go back asynchronously.
         /// </summary>
-        public static Task BackAsync(int playerIndex = 0, CancellationToken cancellationToken = default) {
-            var hud = GetHUD(playerIndex);
+        public static Task BackAsync(CancellationToken cancellationToken = default) {
+            var hud = current;
             return hud?.GoBackAsync(cancellationToken) ?? Task.CompletedTask;
         }
 
         /// <summary>
         /// Pop to the root widget in the navigation stack.
         /// </summary>
-        public static void PopToRoot(int playerIndex = 0) {
-            var hud = GetHUD(playerIndex);
+        public static void PopToRoot() {
+            var hud = current;
             hud?.PopToRootWidget();
         }
 
         /// <summary>
         /// Pop to root asynchronously.
         /// </summary>
-        public static Task PopToRootAsync(int playerIndex = 0, CancellationToken cancellationToken = default) {
-            var hud = GetHUD(playerIndex);
+        public static Task PopToRootAsync(CancellationToken cancellationToken = default) {
+            var hud = current;
             return hud?.PopToRootWidgetAsync(cancellationToken) ?? Task.CompletedTask;
         }
 
         /// <summary>
         /// Clear the navigation stack.
         /// </summary>
-        public static void ClearStack(int playerIndex = 0) {
-            var hud = GetHUD(playerIndex);
+        public static void ClearStack() {
+            var hud = current;
             hud?.ClearNavigationStack();
         }
 
         /// <summary>
         /// Get the navigation stack count.
         /// </summary>
-        public static int StackCount(int playerIndex = 0) {
-            var hud = GetHUD(playerIndex);
+        public static int StackCount() {
+            var hud = current;
             return hud?.GetStackCount() ?? 0;
         }
 
@@ -188,9 +189,27 @@ namespace Majinfwork.World {
 
         #region Instance Methods - Core
 
-        private static HUD GetHUD(int playerIndex) {
-            var controller = PlayerAccessor.GetPlayerController(playerIndex);
-            return controller?.HUD;
+        /// <summary>The game's HUD while it is up (null before boot makes it, or in a game without one).</summary>
+        public static HUD Current => current;
+
+        private static HUD current;
+
+        /// <summary>Boot: makes the game's HUD from <paramref name="prefab"/>, kept for the whole game.</summary>
+        internal static void Create(HUD prefab) {
+            if (prefab == null || current != null) {
+                return;
+            }
+
+            current = Instantiate(prefab);
+            DontDestroyOnLoad(current.gameObject);
+        }
+
+        /// <summary>The game is quitting: its HUD goes.</summary>
+        internal static void Release() {
+            if (current != null) {
+                Destroy(current.gameObject);
+                current = null;
+            }
         }
 
         internal T GetWidget<T>() where T : UIWidget {
@@ -422,6 +441,9 @@ namespace Majinfwork.World {
 
         private void OnDestroy() {
             Cleanup();
+            if (ReferenceEquals(current, this)) {
+                current = null;
+            }
         }
 
         #endregion

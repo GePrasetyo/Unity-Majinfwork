@@ -3,7 +3,7 @@ using System;
 namespace Majinfwork.World {
     /// <summary>
     /// Central controller for a player. Persists across GameMode transitions.
-    /// Controller + State are persistent. Input, Pawn, HUD are equipped per GameMode.
+    /// Controller + State are persistent. Input and Pawn are equipped per GameMode. The game's UI is the HUD's, not a player's.
     /// </summary>
     public class PlayerController : Actor {
         private PlayerState localState;
@@ -22,9 +22,6 @@ namespace Majinfwork.World {
 
         /// <summary>The local state made with this controller (null when the game has none).</summary>
         internal PlayerState LocalState => localState;
-
-        /// <summary>Player HUD (per GameMode)</summary>
-        public HUD HUD { get; private set; }
 
         /// <summary>Currently possessed pawn (per GameMode)</summary>
         public PlayerPawn CurrentPawn { get; private set; }
@@ -58,12 +55,11 @@ namespace Majinfwork.World {
         }
 
         /// <summary>
-        /// Sets up GameMode-owned components (Input, Pawn, HUD).
+        /// Sets up GameMode-owned components (Input, Pawn).
         /// Called each time a new GameMode activates.
         /// </summary>
-        internal void SetupForGameMode(PlayerInput input, PlayerPawn pawn, HUD hud) {
+        internal void SetupForGameMode(PlayerInput input, PlayerPawn pawn) {
             Input = input;
-            HUD = hud;
             Possess(pawn);
             OnGameModeSetup();
         }
@@ -77,7 +73,6 @@ namespace Majinfwork.World {
                 CurrentPawn = null;
             }
             Input = null;
-            HUD = null;
             OnGameModeCleanup();
         }
 

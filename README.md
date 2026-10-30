@@ -44,7 +44,7 @@ The framework adopts Unreal's decoupled architecture, separating data, rules, an
 | **Player Data** | `PlayerState` | `PlayerState` | **Persistent** (local) / Per-Session (online) |
 | **Physical Body** | `Pawn` | `Pawn` / `PlayerPawn` | Per-GameMode |
 | **Input Handler** | `PlayerInput` | `PlayerInput` | Per-GameMode |
-| **HUD** | `HUD` | `HUD` | Per-GameMode |
+| **HUD** | `HUD` | `HUD` | Application |
 | **Global Data** | `GameState` | `GameState` | Per-GameMode |
 
 ---
@@ -60,7 +60,8 @@ To begin using the framework, you must set up the **World Settings**: the projec
 2.  **Assign Game Instance:** Ensure a **Game Instance** (such as the provided `PersistentGameInstance`) is assigned to the settings asset.
 3.  **Attach World Config:** Create and attach a `WorldConfig` ScriptableObject to define how your scenes behave.
 4.  **Assign Player Prefabs:** Set the **PlayerController** and **PlayerState** prefabs. These are created once at boot and persist for the application lifetime. A network game also sets the **Network Player State** prefab (see [Network Play](#5-network-play)), and may leave the local PlayerState empty when it only plays in sessions.
-5.  **PSO Warmup (optional):** **Majingari Framework > Create PSO Warmup Config** creates one next to the settings and sets it on them.
+5.  **HUD (optional):** Set the **HUD** prefab: the game's UI, made once at boot and kept for the whole game (see [HUD & UI Widget System](#️-hud--ui-widget-system)).
+6.  **PSO Warmup (optional):** **Majingari Framework > Create PSO Warmup Config** creates one next to the settings and sets it on them.
 
 The registered settings are stored with the project settings (the way XR Plug-in Management stores its settings). Every player build carries them as a preloaded asset, so they are loaded before the first scene and the framework boots from them; a build without settings fails. A project upgraded from an older version (settings in `Resources`) has its one `GameWorldSettings` registered automatically; move it out of `Resources` afterwards, or a build ships it twice.
 
@@ -78,15 +79,15 @@ Whoever loads a level names the GameMode it runs there, like Unreal's `?game=` (
 ### **2. Game Mode Manager**
 The **GameModeManager** is a ScriptableObject that defines the "rules" for a level. It manages:
 *   **Managers:** Automatically instantiates your `GameState` prefab.
-*   **Per-GameMode Components:** Spawns **PlayerPawn**, **PlayerInput**, and **HUD** for each player when the mode activates, and cleans them up when it deactivates.
+*   **Per-GameMode Components:** Spawns **PlayerPawn** and **PlayerInput** for each player when the mode activates, and cleans them up when it deactivates.
 *   **Camera Logic:** Assigns a **CameraHandler** to manage the player's view.
 
-When transitioning between GameModes, persistent components (Controller + State) survive while per-GameMode components (Pawn, Input, HUD) are destroyed and recreated by the new GameMode.
+When transitioning between GameModes, persistent components (Controller + State) survive while per-GameMode components (Pawn, Input) are destroyed and recreated by the new GameMode. The HUD belongs to no GameMode: there is one for the whole game.
 
 A subclass starts and ends its game in `StartPlay()` and `EndPlay()` (every peer).
 
 > [!NOTE]
-> **PlayerController** and **PlayerState** prefabs are defined in **GameWorldSettings** and spawned once at boot. GameModeManager only sets up per-mode components (Pawn, Input, HUD) for players that already exist.
+> **PlayerController** and **PlayerState** prefabs are defined in **GameWorldSettings** and spawned once at boot. GameModeManager only sets up per-mode components (Pawn, Input) for players that already exist.
 
 ### **3. Player System**
 The framework decouples player logic into distinct components with different lifetimes, mirroring Unreal Engine's player architecture:
@@ -98,7 +99,6 @@ The framework decouples player logic into distinct components with different lif
 **Per-GameMode** (created/destroyed each GameMode transition, defined in GameModeManager):
 *   **PlayerPawn:** The physical representation of the player in the world.
 *   **PlayerInput:** Handles the Unity Input System actions.
-*   **HUD:** The player's UI widgets.
 
 #### **PlayerAccessor API**
 Use the **PlayerAccessor** utility for easy access to player components from any script:
@@ -123,13 +123,13 @@ int playerCount = PlayerAccessor.GetPlayerCount();
 PlayerController persists across GameMode transitions. Override lifecycle hooks to respond:
 ```csharp
 public class MyController : PlayerController {
-    // Called each time a new GameMode sets up this controller with Input, Pawn, HUD
+    // Called each time a new GameMode sets up this controller with Input and Pawn
     protected override void OnGameModeSetup() {
         var ship = GetPawn<PlayerShip>();
         var input = GetInput<MyInput>();
     }
 
-    // Called when the current GameMode cleans up (Input, Pawn, HUD destroyed)
+    // Called when the current GameMode cleans up (Input and Pawn destroyed)
     protected override void OnGameModeCleanup() { }
 
     // Called when possessing/unpossessing a pawn (also works mid-GameMode)
@@ -250,6 +250,8 @@ public class MyLoadingScreen : LoadingStreamer {
 ### **🖼️ HUD & UI Widget System**
 
 The framework provides a complete UI management system with widget caching, navigation stacks, and model-based data binding.
+
+The game has one HUD, like its GameInstance: the **HUD** prefab set in the world settings is made once at boot, after the GameInstance has started (so what its components look up as they wake is registered), and kept for the whole game. It belongs to no GameMode or player. Whatever shows UI, such as the game's state machine or a presenter on the HUD, does so through the static API below; `HUD.Current` is the HUD itself.
 
 #### **Basic Usage**
 ```csharp
