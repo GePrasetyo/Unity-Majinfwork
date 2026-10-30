@@ -150,7 +150,7 @@ var newController = GameInstance.Instance<MyGame>().SpawnPlayer();
 ```
 
 ### **4. Game State**
-The **GameState** holds the state of the game a GameMode runs, for everyone to read: where its rules are (a phase, its timers) and their data (score...). The GameMode makes it when it starts and removes it when it ends; it is resolvable from the `ServiceLocator` (`GameState`) while it is here. It holds state, not gameplay: whatever runs the rules writes it.
+The **GameState** holds the state of the game a GameMode runs, for everyone to read: where its rules are (a phase, its timers) and their data (score...). The GameMode makes it when it starts and removes it when it ends; it is resolvable from the `ServiceLocator` (`GameState`) while it is here, and it is `GameState.Current`. Whatever reads the game binds to it as it comes and goes (`GameState.CurrentChanged`, raised on each device), so a reader up before it (a client's HUD, a menu before its GameMode starts) never has to wait for it or look for it. It holds state, not gameplay: whatever runs the rules writes it.
 
 ### **5. Network Play**
 With Netcode for GameObjects in the project (`HAS_NETCODE`), the GameMode, GameState and PlayerState support network sessions. `GameState` and `PlayerState` derive from `NetworkActor`, a `NetworkBehaviour`, so they carry replicated state (`NetworkVariable`s, RPCs).
