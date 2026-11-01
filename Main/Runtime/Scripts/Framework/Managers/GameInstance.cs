@@ -15,7 +15,7 @@ namespace Majinfwork {
 
 #if HAS_STATEGRAPH
         [Header("State Machine")]
-        [SerializeField] protected GameStateMachineGraph gameStateMachine;
+        [SerializeField] protected StateGraphAsset gameStateMachine;
 
         /// <summary>Runs the game state machine for the whole game; null without one.</summary>
         public StateRunner StateMachine { get; private set; }

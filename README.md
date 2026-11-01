@@ -179,6 +179,10 @@ Unity does not natively allow referencing objects between different scenes in th
 *   **Usage:** Mark your field in a script with the `[CrossSceneReference]` attribute.
 *   **Resolution:** The **CrossSceneManager** automatically resolves these links via GUID when the scene loads.
 
+**`CrossSceneRef<T>`** is the same link held as a value, for assets such as State Graph states: declare a `CrossSceneRef<Transform>` field and call `Resolve()` while the target's scene is loaded.
+*   **Picking:** Pick the object in the field. It gets a `CrossSceneAnchor`, and its scene is saved with it when the scene has no other unsaved changes; otherwise the field asks you to save the scene.
+*   **Closed scenes:** While the target's scene isn't open, the field shows the object's name and scene, read from the scene file, and flags a link whose anchor isn't saved there.
+
 
 ### **🎬 Level Streaming & Loading**
 

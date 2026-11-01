@@ -6,6 +6,7 @@
         "Unity.Addressables",
         "Unity.Addressables.Editor",
         "MStateGraph",
+        "MState_Editor",
         "Unity.Netcode.Runtime"
     ],
     "includePlatforms": [

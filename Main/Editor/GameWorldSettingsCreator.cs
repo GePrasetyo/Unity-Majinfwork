@@ -1,4 +1,8 @@
 using System.IO;
+#if HAS_STATEGRAPH
+using Majinfwork.StateGraph;
+using Unity.GraphToolkit.Editor;
+#endif
 using UnityEditor;
 using UnityEngine;
 
@@ -37,7 +41,7 @@ namespace Majinfwork.World {
 #if HAS_STATEGRAPH
             // The game instance exists only once applied; its state machine is set on it afterwards.
             serialized.Update();
-            serialized.FindProperty("classGameInstance.gameStateMachine").objectReferenceValue = LoadOrCreate<GameStateMachineGraph>($"{folder}/GameStateMachine.asset");
+            serialized.FindProperty("classGameInstance.gameStateMachine").objectReferenceValue = LoadOrCreateStateGraph($"{folder}/GameStateMachine.{StateMachineGraph.Extension}");
             serialized.ApplyModifiedPropertiesWithoutUndo();
 #endif
 
@@ -82,6 +86,20 @@ namespace Majinfwork.World {
 
             return asset;
         }
+
+#if HAS_STATEGRAPH
+        // A State Graph holding its Entry node. The game instance runs the asset its importer bakes.
+        private static StateGraphAsset LoadOrCreateStateGraph(string path) {
+            if (AssetDatabase.LoadAssetAtPath<StateGraphAsset>(path) == null) {
+                var graph = GraphDatabase.CreateGraph<StateMachineGraph>(path);
+                graph.AddNode(new StateGraphEntryNode());
+                GraphDatabase.SaveGraph(graph);
+                AssetDatabase.ImportAsset(path);
+            }
+
+            return AssetDatabase.LoadAssetAtPath<StateGraphAsset>(path);
+        }
+#endif
 
         private static T DefaultPrefab<T>(string folder, string name, params System.Type[] with) where T : Component {
             string path = $"{folder}/{name}.prefab";
