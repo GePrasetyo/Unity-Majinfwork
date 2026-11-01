@@ -4,6 +4,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+#if HAS_NETCODE
+using Unity.Netcode;
+#endif
 
 namespace Majinfwork.World {
     /// <summary>
@@ -16,6 +19,10 @@ namespace Majinfwork.World {
     /// <para>
     /// A level can be loaded here (<see cref="LoadLevelAsync"/>), or by something else, such as a network scene manager, which
     /// then hands the loaded scene over with <see cref="ActivateLevel"/>.
+    /// </para>
+    /// <para>
+    /// The GameMode runs where the authority is: offline, or on the server of a network session. A client of a session
+    /// runs none; once a level has loaded there, its local players' controllers tell the server they have arrived.
     /// </para>
     /// </summary>
     public class LevelManager {
@@ -59,9 +66,7 @@ namespace Majinfwork.World {
                     await LoadSceneInternalAsync(sceneName, cancellationToken);
                 }
 
-                ActivateGameMode(sceneName, target);
-                CurrentSceneName = sceneName;
-                Debug.Log($"[LevelManager] Level ready: {sceneName}");
+                StartLevel(sceneName, target);
             }
             catch (OperationCanceledException) {
                 Debug.Log($"[LevelManager] Level load cancelled: {sceneName}");
@@ -84,9 +89,33 @@ namespace Majinfwork.World {
         public void ActivateLevel(string sceneName, GameModeManager gameMode = null) {
             GameModeManager target = ResolveGameMode(sceneName, gameMode);
             DeactivateCurrentGameMode();
-            ActivateGameMode(sceneName, target);
+            StartLevel(sceneName, target);
+        }
+
+        // The level is this device's now: its GameMode starts here, or (a session's client) the server learns its players are there.
+        private void StartLevel(string sceneName, GameModeManager target) {
             CurrentSceneName = sceneName;
+            if (IsSessionClient) {
+                foreach (PlayerController player in PlayerManager.AllPlayers) {
+                    player.LevelLoaded(sceneName);
+                }
+            } else {
+                ActivateGameMode(sceneName, target);
+            }
+
             Debug.Log($"[LevelManager] Level ready: {sceneName}");
+        }
+
+        /// <summary>This device is a client of a network session: the GameMode runs on the server.</summary>
+        private static bool IsSessionClient {
+            get {
+#if HAS_NETCODE
+                NetworkManager network = NetworkManager.Singleton;
+                return network != null && network.IsListening && !network.IsServer;
+#else
+                return false;
+#endif
+            }
         }
 
         /// <summary>The GameMode for a scene: the one the caller named, else the WorldConfig's: the scene's own, else the default.</summary>

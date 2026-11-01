@@ -4,22 +4,13 @@ using Unity.Netcode;
 
 namespace Majinfwork.World {
     /// <summary>
-    /// A player's state: who they are and what they hold in the game. It is a local player's or an online player's.
-    /// <para>
-    /// A local player's comes with its PlayerController, made at boot and kept for the whole game (the world settings'
-    /// player state). In a network session every player's is spawned by the server's GameMode when they join and kept for
-    /// the whole session, through every level: every peer has them all (<see cref="PlayerAccessor.OnlinePlayers"/>), and
-    /// the one this device plays is its PlayerController's state while the session lasts. An online state's subclass
-    /// overriding the Netcode spawn callbacks calls the base ones first.
-    /// </para>
+    /// A player's state: who they are and what they hold in the game. The GameMode makes it with their PlayerController when
+    /// the player logs in and removes it when they leave or the GameMode ends: it lives as long as its GameMode, so it holds
+    /// nothing that must outlast it. Offline it is this device's alone. In a network session the server spawns it for every
+    /// peer: every peer has them all (<see cref="PlayerAccessor.OnlinePlayers"/>), and the one this device plays is its
+    /// PlayerController's state. An online state's subclass overriding the Netcode spawn callbacks calls the base ones first.
     /// </summary>
     public class PlayerState : NetworkActor {
-        /// <summary>
-        /// Called by PlayerManager on a local player's state after instantiation, before pawn creation.
-        /// Override to initialize from persistent data (GameInstance, save system, etc.).
-        /// </summary>
-        public virtual void OnCreated() { }
-
 #if HAS_NETCODE
         /// <summary>No client plays this player: they left, and the game keeps their state for their return.</summary>
         public const ulong NoClient = ulong.MaxValue;
@@ -65,19 +56,6 @@ namespace Majinfwork.World {
         /// <summary>Server: nobody plays this player for now (they left; the game keeps their state for their return).</summary>
         internal void ReleaseClient() {
             clientId.Value = NoClient;
-        }
-
-        /// <summary>This device's player: its device has started the GameMode of <paramref name="level"/>, so the player is there.</summary>
-        internal void Arrive(string level) {
-            ArrivedRpc(level);
-        }
-
-        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-        private void ArrivedRpc(string level) {
-            GameModeManager gameMode = ServiceLocator.Resolve<LevelManager>()?.CurrentGameMode;
-            if (gameMode != null) {
-                gameMode.PlayerArrived(this, level);
-            }
         }
 
         private void OnClientIdChanged(ulong previous, ulong current) {

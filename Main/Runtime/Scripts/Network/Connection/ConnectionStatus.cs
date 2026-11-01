@@ -19,6 +19,8 @@ namespace Majinfwork.Network {
         Banned = 206,
         SessionNotFound = 207,
         Timeout = 208,
+        /// <summary>The game being played doesn't take them now (<see cref="IPreLogin"/>).</summary>
+        RefusedByGame = 209,
         GenericFailure = 299
     }
 
@@ -47,6 +49,7 @@ namespace Majinfwork.Network {
                 ConnectionStatus.Banned => "Banned from server",
                 ConnectionStatus.SessionNotFound => "Session not found",
                 ConnectionStatus.Timeout => "Connection timed out",
+                ConnectionStatus.RefusedByGame => "The game can't take new players now",
                 ConnectionStatus.GenericFailure => "Connection failed",
                 _ => "Unknown status"
             };

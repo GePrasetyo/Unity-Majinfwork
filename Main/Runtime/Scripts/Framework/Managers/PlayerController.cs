@@ -1,86 +1,131 @@
 using System;
+using UnityEngine;
+#if HAS_NETCODE
+using Unity.Netcode;
+#endif
 
 namespace Majinfwork.World {
     /// <summary>
-    /// Central controller for a player. Persists across GameMode transitions.
-    /// Controller + State are persistent. Input and Pawn are equipped per GameMode. The game's UI is the HUD's, not a player's.
+    /// A player's controller: the player's will in the game. The GameMode makes it with their PlayerState when the player
+    /// logs in and removes both when the player leaves or the GameMode ends: it lives exactly as long as its GameMode, so it
+    /// holds nothing that must outlast it. On the device that plays it (offline, or its owner in a network session) it is
+    /// local: it has the player's camera and input, and <see cref="PlayerAccessor"/> finds it. In a network session it is a
+    /// network object only its owner and the server have; the server's copy is where the player's device talks to the game
+    /// (its arrival, a subclass's requests, as RPCs), and the GameMode listens to it there. A subclass overriding the Netcode
+    /// spawn callbacks calls the base ones first.
     /// </summary>
-    public class PlayerController : Actor {
-        private PlayerState localState;
+    public class PlayerController : NetworkActor {
+        [Tooltip("Optional: the player's input, made on the device that plays them (none: the game reads its input elsewhere, such as an XR rig).")]
+        [SerializeField] private PlayerInput playerInputPrefab;
+        [Tooltip("Optional: the player's camera, on the device that plays them (none: the game has its own).")]
+        [SerializeReference, ClassReference] private CameraHandler cameraHandler;
 
-        /// <summary>Player input handler (per GameMode)</summary>
+        private bool local;
+
+        /// <summary>The player's input on the device that plays them, or null.</summary>
         public PlayerInput Input { get; private set; }
 
         /// <summary>
-        /// The player's state: in a network session, the online one this device plays; otherwise the local one made with
-        /// this controller (none in a game whose players' states all come from its sessions).
+        /// The player's state: given by the GameMode with this controller; on the owner's device in a session, its client's
+        /// online state once that is here (<see cref="StateChanged"/>).
         /// </summary>
         public PlayerState State { get; private set; }
 
-        /// <summary>Raised when <see cref="State"/> changes: the player's online state became theirs for a session, or went with it.</summary>
+        /// <summary>Raised when <see cref="State"/> changes.</summary>
         public event Action StateChanged;
 
-        /// <summary>The local state made with this controller (null when the game has none).</summary>
-        internal PlayerState LocalState => localState;
-
-        /// <summary>Currently possessed pawn (per GameMode)</summary>
+        /// <summary>The pawn this controller possesses, or null.</summary>
         public PlayerPawn CurrentPawn { get; private set; }
 
-        /// <summary>Index of this player (0 = first player)</summary>
+        /// <summary>Index of this local player on its device (0 = first player).</summary>
         public int PlayerIndex { get; internal set; }
 
-        /// <summary>
-        /// Initializes persistent components (Controller + State).
-        /// Called once when the player is first created.
-        /// </summary>
-        internal void InitializePersistent(PlayerState state) {
-            localState = state;
+        /// <summary>This device plays this player (offline, or its owner in a session).</summary>
+        public bool IsLocalController => local;
+
+        internal void SetState(PlayerState state) {
+            if (State == state) return;
+
             State = state;
-        }
-
-        /// <summary>This device plays <paramref name="online"/> for the session.</summary>
-        internal void BindOnline(PlayerState online) {
-            if (State == online) return;
-
-            State = online;
             StateChanged?.Invoke();
         }
 
-        /// <summary><paramref name="online"/> is no longer this device's (it left, or the session ended): back to the local state.</summary>
-        internal void UnbindOnline(PlayerState online) {
-            if (State != online) return;
+        /// <summary>This device plays the player from now on: offline when the GameMode makes it, in a session on its owner's spawn.</summary>
+        internal void BeginLocal() {
+            if (local) return;
 
-            State = localState;
-            StateChanged?.Invoke();
-        }
-
-        /// <summary>
-        /// Sets up GameMode-owned components (Input, Pawn).
-        /// Called each time a new GameMode activates.
-        /// </summary>
-        internal void SetupForGameMode(PlayerInput input, PlayerPawn pawn) {
-            Input = input;
-            Possess(pawn);
-            OnGameModeSetup();
-        }
-
-        /// <summary>
-        /// Cleans up GameMode-owned components. Called when a GameMode deactivates.
-        /// </summary>
-        internal void CleanupFromGameMode() {
-            if (CurrentPawn != null) {
-                OnUnPossess(CurrentPawn);
-                CurrentPawn = null;
+            local = true;
+            cameraHandler?.Construct();
+            if (playerInputPrefab != null) {
+                Input = Instantiate(playerInputPrefab);
+                DontDestroyOnLoad(Input.gameObject);
             }
-            Input = null;
-            OnGameModeCleanup();
+
+            PlayerManager.AddLocal(this);
+            OnLocalStart();
         }
 
-        /// <summary>Called after GameMode-owned components are set up. Override for custom setup.</summary>
-        protected virtual void OnGameModeSetup() { }
+        private void EndLocal() {
+            if (!local) return;
 
-        /// <summary>Called after GameMode-owned components are cleaned up. Override for custom cleanup.</summary>
-        protected virtual void OnGameModeCleanup() { }
+            local = false;
+            OnLocalStop();
+            PlayerManager.RemoveLocal(this);
+            UnPossess();
+            if (Input != null) {
+                Destroy(Input.gameObject);
+                Input = null;
+            }
+
+            cameraHandler?.Deconstruct();
+        }
+
+        /// <summary>This device plays the player now (camera and input are up). Override to start what only the player's device does.</summary>
+        protected virtual void OnLocalStart() { }
+
+        /// <summary>This device stops playing the player (the controller is going). Override to stop what <see cref="OnLocalStart"/> started.</summary>
+        protected virtual void OnLocalStop() { }
+
+#if HAS_NETCODE
+        /// <summary>Server: the player's device has loaded the level it names, on the server's copy of their controller.</summary>
+        internal event Action<PlayerController, string> Arrived;
+
+        public override void OnNetworkSpawn() {
+            if (IsOwner) {
+                BeginLocal();
+                // The level may have loaded here before this controller came.
+                LevelLoaded(ServiceLocator.Resolve<LevelManager>()?.CurrentSceneName);
+            }
+        }
+
+        public override void OnNetworkDespawn() {
+            EndLocal();
+        }
+
+        public override void OnDestroy() {
+            EndLocal();
+            base.OnDestroy();
+        }
+
+        /// <summary>The owner's device has loaded <paramref name="level"/>: the server learns the player is there (a notice naming a level it isn't running is ignored).</summary>
+        internal void LevelLoaded(string level) {
+            if (IsSpawned && IsOwner && !string.IsNullOrEmpty(level)) {
+                ArrivedRpc(level);
+            }
+        }
+
+        // Deferred on the host, so its own player arrives after the GameMode has finished logging them in.
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner, DeferLocal = true)]
+        private void ArrivedRpc(string level) {
+            Arrived?.Invoke(this, level);
+        }
+#else
+        protected virtual void OnDestroy() {
+            EndLocal();
+        }
+
+        internal void LevelLoaded(string level) { }
+#endif
 
         /// <summary>
         /// Possess a pawn, making it the current controlled pawn.

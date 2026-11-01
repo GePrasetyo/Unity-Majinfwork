@@ -3,16 +3,13 @@ using UnityEngine;
 
 namespace Majinfwork.World {
     /// <summary>
-    /// Owns all persistent PlayerControllers and PlayerStates.
-    /// These persist across GameMode transitions — only Pawn, Input, HUD are per-GameMode.
-    /// In a network session it also keeps every online player's state, for as long as the session spawns it.
+    /// The players on this device, as registries: the local PlayerControllers (the ones this device plays, offline or its
+    /// own in a session) and, in a network session, every online player's state. The GameMode makes and removes them; they
+    /// join and leave these lists themselves. The first local player plays the online state of this device's client.
     /// </summary>
     internal static class PlayerManager {
         private static readonly List<PlayerController> players = new();
         private static readonly List<PlayerState> onlinePlayers = new();
-
-        private static PlayerController controllerPrefab;
-        private static PlayerState statePrefab;
 
         public static int PlayerCount => players.Count;
         public static IReadOnlyList<PlayerController> AllPlayers => players;
@@ -20,56 +17,25 @@ namespace Majinfwork.World {
         /// <summary>Every online player's state on this peer (empty outside a network session).</summary>
         public static IReadOnlyList<PlayerState> OnlinePlayers => onlinePlayers;
 
-        /// <summary>Each player's state in a network session, spawned by the server's GameMode for every player who joins.</summary>
-        public static PlayerState NetworkStatePrefab { get; set; }
-
-        /// <summary>
-        /// Called by GameWorldSettings during boot to provide persistent player prefabs.
-        /// </summary>
-        public static void Initialize(PlayerController controllerPrefab, PlayerState statePrefab) {
-            PlayerManager.controllerPrefab = controllerPrefab;
-            PlayerManager.statePrefab = statePrefab;
-        }
-
-        /// <summary>
-        /// Creates a new persistent player (Controller + State).
-        /// Called by GameWorldSettings during boot, or for additional players joining later.
-        /// </summary>
-        public static PlayerController SpawnPlayer(int? playerIndex = null) {
-            int index = playerIndex ?? players.Count;
-
-            var controller = Object.Instantiate(controllerPrefab);
-            Object.DontDestroyOnLoad(controller.gameObject);
-
-            // A game whose players' states all come from its network sessions has no local one.
-            var state = statePrefab != null ? Object.Instantiate(statePrefab) : null;
-            if (state != null) {
-                state.OnCreated();
-                Object.DontDestroyOnLoad(state.gameObject);
-            }
-
-            controller.InitializePersistent(state);
-            RegisterPlayer(controller);
-
-            return controller;
-        }
-
-        public static void RegisterPlayer(PlayerController controller) {
+        /// <summary>A controller this device plays came: it is the next local player, and plays its client's online state if that is here.</summary>
+        internal static void AddLocal(PlayerController controller) {
             if (controller == null || players.Contains(controller)) return;
 
             controller.PlayerIndex = players.Count;
             players.Add(controller);
+            if (controller.PlayerIndex == 0) {
+                foreach (PlayerState state in onlinePlayers) {
+                    RefreshOnline(state);
+                }
+            }
         }
 
-        public static void UnregisterPlayer(PlayerController controller) {
-            if (controller == null) return;
-
+        /// <summary>A local controller went (its player left, or its GameMode ended).</summary>
+        internal static void RemoveLocal(PlayerController controller) {
             int index = players.IndexOf(controller);
             if (index < 0) return;
 
             players.RemoveAt(index);
-
-            // Re-index remaining players
             for (int i = index; i < players.Count; i++) {
                 players[i].PlayerIndex = i;
             }
@@ -82,33 +48,6 @@ namespace Majinfwork.World {
 
         public static T GetPlayer<T>(int index = 0) where T : PlayerController {
             return GetPlayer(index) as T;
-        }
-
-        /// <summary>
-        /// Fully destroys a player — Controller, State, and any possessed Pawn/Input/HUD.
-        /// Use for explicit player removal (player disconnect, game quit).
-        /// </summary>
-        public static void DestroyPlayer(PlayerController controller) {
-            if (controller == null) return;
-
-            UnregisterPlayer(controller);
-
-            if (controller.LocalState != null) Object.Destroy(controller.LocalState.gameObject);
-            Object.Destroy(controller.gameObject);
-        }
-
-        /// <summary>
-        /// Destroys all players. Called during game shutdown.
-        /// </summary>
-        public static void DestroyAll() {
-            for (int i = players.Count - 1; i >= 0; i--) {
-                var controller = players[i];
-                if (controller == null) continue;
-
-                if (controller.LocalState != null) Object.Destroy(controller.LocalState.gameObject);
-                Object.Destroy(controller.gameObject);
-            }
-            players.Clear();
         }
 
         /// <summary>The online player <paramref name="clientId"/> plays, or null.</summary>
@@ -127,10 +66,13 @@ namespace Majinfwork.World {
             RefreshOnline(state);
         }
 
-        /// <summary>An online player's state went (the player left for good, or the session ended).</summary>
+        /// <summary>An online player's state went (the player left, or its GameMode or the session ended).</summary>
         internal static void RemoveOnline(PlayerState state) {
             onlinePlayers.Remove(state);
-            GetPlayer(0)?.UnbindOnline(state);
+            PlayerController local = GetPlayer(0);
+            if (local != null && local.State == state) {
+                local.SetState(null);
+            }
         }
 
         /// <summary>The first local player plays the online state of this device's client (one local player per client online).</summary>
@@ -139,16 +81,16 @@ namespace Majinfwork.World {
             PlayerController local = GetPlayer(0);
             if (local == null) return;
 
-            if (state.IsLocalPlayer) local.BindOnline(state);
-            else local.UnbindOnline(state);
+            if (state.IsLocalPlayer) local.SetState(state);
+            else if (local.State == state) local.SetState(null);
 #endif
         }
 
-        /// <summary>
-        /// Clears references without destroying objects. Only for edge cases.
-        /// </summary>
-        public static void Clear() {
+        // Play mode without a domain reload keeps statics: each play starts with no players.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics() {
             players.Clear();
+            onlinePlayers.Clear();
         }
     }
 }

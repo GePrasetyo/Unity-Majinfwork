@@ -40,10 +40,10 @@ The framework adopts Unreal's decoupled architecture, separating data, rules, an
 | :--- | :--- | :--- | :--- |
 | **Global Manager** | `GameInstance` | `GameInstance` | Application |
 | **Level Rules** | `GameMode` | `GameModeManager` | Per-Level |
-| **Input & Logic** | `PlayerController` | `PlayerController` | **Persistent** |
-| **Player Data** | `PlayerState` | `PlayerState` | **Persistent** (local) / Per-Session (online) |
-| **Physical Body** | `Pawn` | `Pawn` / `PlayerPawn` | Per-GameMode |
-| **Input Handler** | `PlayerInput` | `PlayerInput` | Per-GameMode |
+| **Input & Logic** | `PlayerController` | `PlayerController` | Per-GameMode |
+| **Player Data** | `PlayerState` | `PlayerState` | Per-GameMode |
+| **Physical Body** | `Pawn` | `Pawn` / `PlayerPawn` | Whoever spawns it |
+| **Input Handler** | `PlayerInput` | `PlayerInput` | With its PlayerController |
 | **HUD** | `HUD` | `HUD` | Application |
 | **Global Data** | `GameState` | `GameState` | Per-GameMode |
 
@@ -56,10 +56,10 @@ To begin using the framework, you must set up the **World Settings**: the projec
 > [!TIP]
 > **Majingari Framework > Get World Settings** opens that page.
 
-1.  **Create Settings:** on that page, **Create World Settings...** asks for a folder (any folder; it doesn't need to be `Resources`) and creates `GameWorldSettings.asset` there, with working defaults beside it: a `PersistentGameInstance`, a `WorldConfig` with a default GameMode, and default PlayerController and PlayerState prefabs. To use an asset you already have, pick it in the **World Settings** field instead.
+1.  **Create Settings:** on that page, **Create World Settings...** asks for a folder (any folder; it doesn't need to be `Resources`) and creates `GameWorldSettings.asset` there, with working defaults beside it: a `PersistentGameInstance`, a default HUD, and a `WorldConfig` whose default GameMode has default GameState, PlayerController and PlayerState prefabs. To use an asset you already have, pick it in the **World Settings** field instead.
 2.  **Assign Game Instance:** Ensure a **Game Instance** (such as the provided `PersistentGameInstance`) is assigned to the settings asset.
 3.  **Attach World Config:** Create and attach a `WorldConfig` ScriptableObject to define how your scenes behave.
-4.  **Assign Player Prefabs:** Set the **PlayerController** and **PlayerState** prefabs. These are created once at boot and persist for the application lifetime. A network game also sets the **Network Player State** prefab (see [Network Play](#5-network-play)), and may leave the local PlayerState empty when it only plays in sessions.
+4.  **Player Prefabs:** each GameMode names its own **PlayerController** and **PlayerState** prefabs (see [Game Mode Manager](#2-game-mode-manager)); its players live as long as it does.
 5.  **HUD (optional):** Set the **HUD** prefab: the game's UI, made once at boot and kept for the whole game (see [HUD & UI Widget System](#️-hud--ui-widget-system)).
 6.  **PSO Warmup (optional):** **Majingari Framework > Create PSO Warmup Config** creates one next to the settings and sets it on them.
 
@@ -77,28 +77,19 @@ Whoever loads a level names the GameMode it runs there, like Unreal's `?game=` (
 *   **Default Game Mode:** A fallback mode used for any scene not explicitly listed.
 
 ### **2. Game Mode Manager**
-The **GameModeManager** is a ScriptableObject that defines the "rules" for a level. It manages:
-*   **Managers:** Automatically instantiates your `GameState` prefab.
-*   **Per-GameMode Components:** Spawns **PlayerPawn** and **PlayerInput** for each player when the mode activates, and cleans them up when it deactivates.
-*   **Camera Logic:** Assigns a **CameraHandler** to manage the player's view.
+The **GameModeManager** is a ScriptableObject that defines the "rules" for a level, like Unreal's GameMode. It runs where the authority is: offline on this device, in a network session on the server (a client runs none, and gets what the server spawns). It manages:
+*   **Managers:** Instantiates your `GameState` prefab.
+*   **Players:** logs each player in with a **PlayerController** and a **PlayerState** made from its own prefabs (like Unreal's `PlayerControllerClass` and `PlayerStateClass`). They live as long as the GameMode: when it ends they go with it, and the next GameMode logs everyone in again. Nothing is copied over: anything that must outlast a GameMode belongs elsewhere (a save, a GameInstance service), not on the PlayerController or PlayerState.
 
-When transitioning between GameModes, persistent components (Controller + State) survive while per-GameMode components (Pawn, Input) are destroyed and recreated by the new GameMode. The HUD belongs to no GameMode: there is one for the whole game.
+A subclass starts and ends its game in `StartPlay()` and `EndPlay()`, and follows its players with `OnPlayerJoined` (logged in), `OnPlayerArrived` (their device is in the level: spawn what they play with, like Unreal's `HandleStartingNewPlayer`) and `OnPlayerLeft`. Offline, the first local player is logged in as the GameMode starts and arrives at once.
 
-A subclass starts and ends its game in `StartPlay()` and `EndPlay()` (every peer).
-
-> [!NOTE]
-> **PlayerController** and **PlayerState** prefabs are defined in **GameWorldSettings** and spawned once at boot. GameModeManager only sets up per-mode components (Pawn, Input) for players that already exist.
+To keep players across games (a party game's minigames), play them in one GameMode: a runner per game and additive level loading, rather than a GameMode per game. The HUD belongs to no GameMode: there is one for the whole game.
 
 ### **3. Player System**
-The framework decouples player logic into distinct components with different lifetimes, mirroring Unreal Engine's player architecture:
-
-**Persistent** (survive GameMode transitions, defined in GameWorldSettings):
-*   **PlayerController:** The brain that possesses a pawn and links input to state. Created once, persists for the application lifetime.
-*   **PlayerState:** Stores persistent data for that specific player.
-
-**Per-GameMode** (created/destroyed each GameMode transition, defined in GameModeManager):
-*   **PlayerPawn:** The physical representation of the player in the world.
-*   **PlayerInput:** Handles the Unity Input System actions.
+The framework decouples player logic into distinct components, mirroring Unreal Engine's player architecture. The GameMode makes the first two for each player and removes them when the player leaves or the GameMode ends:
+*   **PlayerController:** The player's will: possesses a pawn and links input to state. On the device that plays it (offline, or its owner in a session) it is local: it makes the player's **PlayerInput** (its optional prefab) and runs its optional **CameraHandler**, and `PlayerAccessor` finds it.
+*   **PlayerState:** The player's data in the game.
+*   **PlayerPawn:** The player's body in the world, spawned by whoever the game decides and possessed with `Possess`.
 
 #### **PlayerAccessor API**
 Use the **PlayerAccessor** utility for easy access to player components from any script:
@@ -119,18 +110,17 @@ var player2Pawn = PlayerAccessor.GetPlayerPawn<MyPawn>(index: 1);
 int playerCount = PlayerAccessor.GetPlayerCount();
 ```
 
-#### **Possession & GameMode Lifecycle**
-PlayerController persists across GameMode transitions. Override lifecycle hooks to respond:
+#### **Possession & Lifecycle**
+A PlayerController lives as long as its GameMode. Override its hooks to respond:
 ```csharp
 public class MyController : PlayerController {
-    // Called each time a new GameMode sets up this controller with Input and Pawn
-    protected override void OnGameModeSetup() {
-        var ship = GetPawn<PlayerShip>();
+    // This device plays the player now (camera and input are up): start what only their device does
+    protected override void OnLocalStart() {
         var input = GetInput<MyInput>();
     }
 
-    // Called when the current GameMode cleans up (Input and Pawn destroyed)
-    protected override void OnGameModeCleanup() { }
+    // This device stops playing them (the controller is going)
+    protected override void OnLocalStop() { }
 
     // Called when possessing/unpossessing a pawn (also works mid-GameMode)
     protected override void OnPossess(PlayerPawn pawn) { }
@@ -143,27 +133,37 @@ controller.UnPossess();
 ```
 
 #### **Spawning Additional Players**
-Player 0 is spawned automatically at boot, once the save system has loaded the saves (with the save system on), so players and the GameInstance read what is on disk from the start. For split-screen or late-joining local players, spawn additional players through `GameInstance`:
+Offline, the GameMode logs in player 0 as it starts. A split-screen game keeps its own count of local players (in its GameInstance, say) and its GameMode subclass logs in the others:
 ```csharp
-// Spawn a new persistent player (Controller + State)
-var newController = GameInstance.Instance<MyGame>().SpawnPlayer();
+public class PartyMode : GameModeManager {
+    protected override void OnPlayerJoined(PlayerController player) {
+        // Player 0 is in: the others join them.
+        if (player.PlayerIndex == 0) {
+            for (int i = 1; i < GameInstance.Instance<MyGame>().LocalPlayers; i++) {
+                SpawnPlayer();   // a new local player (Controller + State), arrived at once
+            }
+        }
+    }
+}
 ```
+`DespawnPlayer(controller)` takes one out again.
 
 ### **4. Game State**
 The **GameState** holds the state of the game a GameMode runs, for everyone to read: where its rules are (a phase, its timers) and their data (score...). The GameMode makes it when it starts and removes it when it ends; it is resolvable from the `ServiceLocator` (`GameState`) while it is here, and it is `GameState.Current`. Whatever reads the game binds to it as it comes and goes (`GameState.CurrentChanged`, raised on each device), so a reader up before it (a client's HUD, a menu before its GameMode starts) never has to wait for it or look for it. It holds state, not gameplay: whatever runs the rules writes it.
 
 ### **5. Network Play**
-With Netcode for GameObjects in the project (`HAS_NETCODE`), the GameMode, GameState and PlayerState support network sessions. `GameState` and `PlayerState` derive from `NetworkActor`, a `NetworkBehaviour`, so they carry replicated state (`NetworkVariable`s, RPCs).
+With Netcode for GameObjects in the project (`HAS_NETCODE`), the GameMode and its players support network sessions. `GameState`, `PlayerState` and `PlayerController` derive from `NetworkActor`, a `NetworkBehaviour`, so they carry replicated state (`NetworkVariable`s, RPCs); their prefabs are `NetworkObject`s registered with the `NetworkManager`.
 
-A GameMode started while a session runs plays in it, the server as its authority (start the session before the GameMode; one started outside a session plays on this device alone):
-*   **GameState:** the server spawns it (its prefab is a `NetworkObject` registered with the `NetworkManager`); every peer receives it.
-*   **Players:** each player who joins gets their **online PlayerState** (`Login`; the world settings' *Network Player State*), kept for the whole session through every level. Every peer has them all (`PlayerAccessor.OnlinePlayers`, `GetOnlinePlayer<T>(clientId)`), and the one this device plays is its PlayerController's `State` while the session lasts (`StateChanged` says when).
-*   **Server hooks:** `OnPlayerJoined` (in the session while this GameMode runs), `OnPlayerArrived` (their device has started this GameMode too: spawn what they play with, like Unreal's `HandleStartingNewPlayer`), `OnPlayerLeft` (their state goes by default; `KeepForReturn` keeps it, and an overridden `Login` gives a returning player theirs back with `Reconnect`), `OnSessionEnded`.
+A GameMode started while a session runs plays in it on the server, the session's authority (start the session before the GameMode; one started outside a session plays on this device alone). `LevelManager` starts no GameMode on a client: once a level has loaded there, its PlayerController tells the server the player has arrived.
+*   **GameState:** the server spawns it; every peer receives it. It is `GameState.Current` once spawned, its state readable.
+*   **Players:** a connecting player may be refused first (`PreLogin`, asked by the connection approval: return why, or null to let them in). Each player who joins gets their **PlayerState** (`Login`), which every peer has (`PlayerAccessor.OnlinePlayers`, `GetOnlinePlayer<T>(clientId)`), and their **PlayerController**, which only they and the server have. The one this device plays is its PlayerController's `State` (`StateChanged` says when it arrives).
+*   **Talking to the game:** the player's device talks to the server through its PlayerController: RPCs from the owner raise events on the server's copy, which the GameMode subscribes to in `OnPlayerJoined`. Arrival goes this way too.
+*   **Server hooks:** `PreLogin`, `Login`, `OnPlayerJoined`, `OnPlayerArrived` (spawn what they play with), `OnPlayerLeft` (their state goes by default; `KeepForReturn` keeps it until the GameMode ends, and an overridden `Login` gives a returning player theirs back with `Reconnect`), `OnSessionEnded`.
 
 ```csharp
 public class ArenaMode : GameModeManager {
-    protected override void OnPlayerArrived(PlayerState player) {
-        SpawnAvatarFor((MyPlayerState)player);   // server only, like every player hook
+    protected override void OnPlayerArrived(PlayerController player) {
+        SpawnAvatarFor((MyPlayerState)player.State);   // server only, like every player hook
     }
 }
 ```
@@ -595,6 +595,7 @@ await foreach (var evt in lanDiscovery.ScanAsync(timeout: null, cancellationToke
 | `InvalidPlayerName` | Player name empty or too long |
 | `Timeout` | Connection attempt timed out |
 | `Banned` | Client is banned from session |
+| `RefusedByGame` | The GameMode's `PreLogin` refused them (its reason is sent to the client) |
 
 **Helper methods:**
 ```csharp

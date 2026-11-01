@@ -9,8 +9,8 @@ using UnityEditor;
 
 namespace Majinfwork.World {
     /// <summary>
-    /// The project's world settings: the GameInstance that runs the app, the WorldConfig (each scene's GameMode), the
-    /// persistent PlayerController and PlayerState, the game's HUD, the save system and the PSO warmup. Like Unreal's Maps &amp; Modes project
+    /// The project's world settings: the GameInstance that runs the app, the WorldConfig (each scene's GameMode, which
+    /// makes its players), the game's HUD, the save system and the PSO warmup. Like Unreal's Maps &amp; Modes project
     /// settings there is exactly one per project: the asset registered in Project Settings &gt; Majingari Framework, which can
     /// live in any folder. A build carries it as a preloaded asset, so it is loaded before the first scene and the framework
     /// boots from it; in the editor the registered asset is used directly.
@@ -22,17 +22,6 @@ namespace Majinfwork.World {
         [SerializeReference, ClassReference] internal GameInstance classGameInstance;
         [SerializeField] private WorldConfig worldConfigObject;
         [SerializeField] private GameScriptableObject[] preInitializeSciptableObjects = Array.Empty<GameScriptableObject>();
-
-        [Header("Player Setup")]
-        [SerializeField] private PlayerController playerControllerPrefab;
-        [Tooltip("A local player's state, made with their controller and kept for the whole game. None in a game whose " +
-                 "players' states all come from its network sessions.")]
-        [SerializeField] private PlayerState playerStatePrefab;
-#if HAS_NETCODE
-        [Tooltip("Each player's state in a network session, spawned by the server's GameMode for every player who joins: a " +
-                 "NetworkObject prefab registered with the NetworkManager.")]
-        [SerializeField] private PlayerState networkPlayerStatePrefab;
-#endif
 
         [Header("HUD")]
         [Tooltip("The game's UI, made once at boot after the GameInstance has started, and kept for the whole game (none: a " +
@@ -137,8 +126,8 @@ namespace Majinfwork.World {
             ServiceLocator.Register<GameInstance>(instance.classGameInstance);
             Application.quitting += instance.OnGameQuit;
 
-            // Players and the game instance read their saves as they start: they come up once the saves are loaded, so
-            // nothing ever sees a stand-in for what is on disk.
+            // The game instance reads its saves as it starts: it comes up once the saves are loaded, so nothing ever sees a
+            // stand-in for what is on disk.
             if (saves != null) {
                 try {
                     await saves;
@@ -147,13 +136,6 @@ namespace Majinfwork.World {
                     Debug.LogException(e);
                 }
             }
-
-            // Then do work that may depend on them (PlayerState.OnCreated resolves GameInstance).
-            PlayerManager.Initialize(instance.playerControllerPrefab, instance.playerStatePrefab);
-#if HAS_NETCODE
-            PlayerManager.NetworkStatePrefab = instance.networkPlayerStatePrefab;
-#endif
-            PlayerManager.SpawnPlayer();
 
             instance.classGameInstance.Construct(instance.worldConfigObject);
             // After the GameInstance has started: what the HUD's components look up as they wake is registered by then.
@@ -181,7 +163,6 @@ namespace Majinfwork.World {
         private void OnGameQuit() {
             HUD.Release();
             ServiceLocator.Unregister<GameInstance>(out string message);
-            PlayerManager.DestroyAll();
             classGameInstance.Deconstruct();
 
             var saveService = ServiceLocator.Resolve<ISaveDataService>();

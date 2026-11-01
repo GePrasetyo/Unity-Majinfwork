@@ -465,6 +465,18 @@ namespace Majinfwork.Network {
                 return;
             }
 
+            // The game being played may refuse a valid connection (a match on that takes no one new); never the host's own.
+            string refused = request.ClientNetworkId != networkManager.LocalClientId
+                ? ServiceLocator.Resolve<IPreLogin>()?.PreLogin(request.ClientNetworkId, payload)
+                : null;
+            if (!string.IsNullOrEmpty(refused)) {
+                response.Approved = false;
+                response.Reason = refused;
+                OnConnectionRejected(request.ClientNetworkId, ConnectionStatus.RefusedByGame, payload);
+                Debug.LogWarning($"[UNetcodeConnectionHandler] Connection refused by the game: {refused}");
+                return;
+            }
+
             // Configure spawning
             ConfigurePlayerSpawn(request, response, payload);
 

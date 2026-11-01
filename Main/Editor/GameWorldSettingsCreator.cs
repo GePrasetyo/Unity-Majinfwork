@@ -4,9 +4,8 @@ using UnityEngine;
 
 namespace Majinfwork.World {
     /// <summary>
-    /// Creates a project's world settings with working defaults next to them: a persistent game instance, default
-    /// PlayerController and PlayerState, and a WorldConfig whose default GameMode has a default GameState, HUD, PlayerInput,
-    /// camera handler and pawn.
+    /// Creates a project's world settings with working defaults next to them: a persistent game instance, a default HUD, and
+    /// a WorldConfig whose default GameMode has a default GameState, PlayerController and PlayerState.
     /// </summary>
     internal static class GameWorldSettingsCreator {
         private const string DefaultFolder = "Assets/Settings";
@@ -33,8 +32,6 @@ namespace Majinfwork.World {
             var serialized = new SerializedObject(settings);
             serialized.FindProperty("classGameInstance").managedReferenceValue = new PersistentGameInstance();
             serialized.FindProperty("worldConfigObject").objectReferenceValue = world;
-            serialized.FindProperty("playerControllerPrefab").objectReferenceValue = DefaultPrefab<PlayerController>(folder, "Default PlayerController");
-            serialized.FindProperty("playerStatePrefab").objectReferenceValue = DefaultPrefab<PlayerState>(folder, "Default PlayerState");
             serialized.FindProperty("hudPrefab").objectReferenceValue = DefaultPrefab<HUD>(folder, "Default HUD");
             serialized.ApplyModifiedPropertiesWithoutUndo();
 #if HAS_STATEGRAPH
@@ -55,18 +52,14 @@ namespace Majinfwork.World {
             var mode = LoadOrCreate<GameModeManager>($"{folder}/Default GameMode.asset");
             var serialized = new SerializedObject(mode);
 #if HAS_NETCODE
-            // Spawnable in a network session (once registered with the NetworkManager); outside one it runs locally.
-            serialized.FindProperty("gameState").objectReferenceValue = DefaultPrefab<GameState>(folder, "Default GameState", typeof(Unity.Netcode.NetworkObject));
+            // Spawnable in a network session (once registered with the NetworkManager); outside one they run locally.
+            System.Type[] networked = { typeof(Unity.Netcode.NetworkObject) };
 #else
-            serialized.FindProperty("gameState").objectReferenceValue = DefaultPrefab<GameState>(folder, "Default GameState");
+            System.Type[] networked = System.Type.EmptyTypes;
 #endif
-            serialized.FindProperty("playerInputPrefab").objectReferenceValue = DefaultPrefab<PlayerInput>(folder, "Default PlayerInput");
-            serialized.FindProperty("cameraHandler").managedReferenceValue = new CameraHandlerNone();
-            serialized.FindProperty("pawnProvider").managedReferenceValue = new DefaultPawnProvider();
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-
-            serialized.Update();
-            serialized.FindProperty("pawnProvider.pawnPrefab").objectReferenceValue = DefaultPrefab<PlayerPawn>(folder, "Default PlayerPawn");
+            serialized.FindProperty("gameState").objectReferenceValue = DefaultPrefab<GameState>(folder, "Default GameState", networked);
+            serialized.FindProperty("playerControllerPrefab").objectReferenceValue = DefaultPrefab<PlayerController>(folder, "Default PlayerController", networked);
+            serialized.FindProperty("playerStatePrefab").objectReferenceValue = DefaultPrefab<PlayerState>(folder, "Default PlayerState", networked);
             serialized.ApplyModifiedPropertiesWithoutUndo();
             return mode;
         }
