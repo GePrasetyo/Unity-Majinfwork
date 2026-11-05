@@ -39,22 +39,7 @@ namespace Majinfwork.Network {
             }
 
             IPEndPoint endPoint = new IPEndPoint(IPAddress.Broadcast, port);
-
-            using (FastBufferWriter writer = new FastBufferWriter(1024, Allocator.Temp, 1024 * 64)) {
-                WriteHeader(writer, MessageType.BroadCast);
-                writer.WriteNetworkSerializable(broadCast);
-                var data = writer.ToArray();
-
-                try {
-                    udpClient.SendAsync(data, data.Length, endPoint);
-                }
-                catch (ObjectDisposedException) {
-                    // Socket was closed, ignore
-                }
-                catch (Exception e) {
-                    Debug.LogError($"[NetworkDiscovery] Failed to send broadcast: {e.Message}");
-                }
-            }
+            _ = SendAsync(MessageType.BroadCast, broadCast, endPoint);
         }
 
         protected void StartLocalSession() {
@@ -221,7 +206,7 @@ namespace Majinfwork.Network {
                 var endpoint = udpReceiveResult.RemoteEndPoint;
                 MainThreadDispatcher.Enqueue(() => {
                     if (ProcessBroadcast(endpoint, receivedBroadcast, out TResponse response)) {
-                        SendResponseAsync(endpoint, response);
+                        _ = SendAsync(MessageType.Response, response, endpoint);
                     }
                 });
             }
@@ -230,23 +215,30 @@ namespace Majinfwork.Network {
             }
         }
 
-        private async void SendResponseAsync(IPEndPoint endpoint, TResponse response) {
-            if (udpClient == null) return;
+        /// <summary>
+        /// Sends <paramref name="message"/> to <paramref name="endpoint"/>. The message is written into a frame-temporary
+        /// buffer, so it is copied out and the buffer freed before the send is awaited: the send can finish on a later frame,
+        /// when that buffer is no longer valid. A failed send is logged here, so callers can leave the task running.
+        /// </summary>
+        private async Task SendAsync<TMessage>(MessageType type, TMessage message, IPEndPoint endpoint) where TMessage : INetworkSerializable {
+            UdpClient client = udpClient;
+            if (client == null) return;
 
-            // Use Allocator.Temp instead of Persistent
-            using var writer = new FastBufferWriter(1024, Allocator.Temp, 1024 * 64);
-            WriteHeader(writer, MessageType.Response);
-            writer.WriteNetworkSerializable(response);
-            var data = writer.ToArray();
+            byte[] data;
+            using (var writer = new FastBufferWriter(1024, Allocator.Temp, 1024 * 64)) {
+                WriteHeader(writer, type);
+                writer.WriteNetworkSerializable(message);
+                data = writer.ToArray();
+            }
 
             try {
-                await udpClient.SendAsync(data, data.Length, endpoint);
+                await client.SendAsync(data, data.Length, endpoint);
             }
             catch (ObjectDisposedException) {
                 // Socket was closed, ignore
             }
             catch (Exception ex) {
-                Debug.LogError($"[NetworkDiscovery] Failed to send response: {ex.Message}");
+                Debug.LogError($"[NetworkDiscovery] Failed to send {(type == MessageType.Response ? "response" : "broadcast")}: {ex.Message}");
             }
         }
 
