@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 using UnityEngine.Rendering;
 
 namespace Majinfwork.World {
@@ -15,11 +16,12 @@ namespace Majinfwork.World {
         public bool SkipInEditor => skipInEditor;
         public PSOWarmupScreen WarmupScreen => warmupScreen;
 
-        public GraphicsStateCollection GetCollectionForCurrentPlatform() {
+        /// <summary>This platform's recordings (none: no warmup).</summary>
+        public PlatformPSOEntry GetEntryForCurrentPlatform() {
             var group = GetCurrentPlatformGroup();
             for (int i = 0; i < platformCollections.Length; i++) {
                 if (platformCollections[i] != null && platformCollections[i].platform == group)
-                    return platformCollections[i].collection;
+                    return platformCollections[i];
             }
             return null;
         }
@@ -72,9 +74,21 @@ namespace Majinfwork.World {
         WebGL
     }
 
+    /// <summary>
+    /// One platform's recordings. A recording references the shaders it warms, and a shader used both by what is built into
+    /// the app and by what streams in Addressables bundles ships twice, as two objects: each copy is warmed only from a
+    /// recording that ships beside it. So the states of what is built in go in <see cref="collection"/>, and those of what
+    /// streams in <see cref="addressableCollection"/>, a recording that is itself Addressable (its shaders are the
+    /// bundles' own). That one is loaded at boot and stays loaded, so the bundles holding its shaders do too, and those
+    /// shaders stay warm from level to level.
+    /// </summary>
     [Serializable]
     public class PlatformPSOEntry {
         public RuntimePlatformGroup platform;
+        [Tooltip("The pipeline states of what is built into the app (none: nothing to warm there).")]
         public GraphicsStateCollection collection;
+        [Tooltip("The pipeline states of what streams in Addressables bundles: an Addressable recording, loaded at boot and " +
+                 "kept loaded (none: nothing to warm there).")]
+        public AssetReferenceT<GraphicsStateCollection> addressableCollection;
     }
 }
