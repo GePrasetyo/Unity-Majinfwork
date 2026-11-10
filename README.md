@@ -61,7 +61,7 @@ To begin using the framework, you must set up the **World Settings**: the projec
 3.  **Attach World Config:** Create and attach a `WorldConfig` ScriptableObject to define how your scenes behave.
 4.  **Player Prefabs:** each GameMode names its own **PlayerController** and **PlayerState** prefabs (see [Game Mode Manager](#2-game-mode-manager)); its players live as long as it does.
 5.  **HUD (optional):** Set the **HUD** prefab: the game's UI, made once at boot and kept for the whole game (see [HUD & UI Widget System](#️-hud--ui-widget-system)).
-6.  **PSO Warmup (optional):** **Majingari Framework > Create PSO Warmup Config** creates one next to the settings and sets it on them.
+6.  **PSO Warmup (optional):** **Majingari Framework > Create PSO Warmup Config** creates one next to the settings and sets it on them. Give it a `GraphicsStateCollection` per platform, recorded on the device: a development build has a recorder (F11) that saves `persistentDataPath/RecordedPSO/pso_<time>.graphicsstate`, or call `GraphicsStateCollection.BeginTrace`, `EndTrace` and `SaveToFile` yourself. Before the first scene the framework warms up every graphics state in it, behind the config's warmup screen, and logs how long it took; a collection recorded on another graphics API is skipped.
 
 The registered settings are stored with the project settings (the way XR Plug-in Management stores its settings). Every player build carries them as a preloaded asset, so they are loaded before the first scene and the framework boots from them; a build without settings fails. A project upgraded from an older version (settings in `Resources`) has its one `GameWorldSettings` registered automatically; move it out of `Resources` afterwards, or a build ships it twice.
 

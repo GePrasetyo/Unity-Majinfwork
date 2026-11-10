@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Unity.Jobs;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
 
 namespace Majinfwork.World {
     internal class PSOWarmupRunner : IPSOWarmupProgress {
@@ -24,13 +26,22 @@ namespace Majinfwork.World {
                 return;
             }
 
+            // A collection holds the pipeline states of the graphics API it was recorded on: it warms up nothing on another.
+            if (collection.graphicsDeviceType != SystemInfo.graphicsDeviceType) {
+                Debug.Log($"[PSOWarmupRunner] {collection.name} was recorded on {collection.graphicsDeviceType}; this device runs {SystemInfo.graphicsDeviceType}: no warmup");
+                IsComplete = true;
+                return;
+            }
+
             cts = CancellationTokenSource.CreateLinkedTokenSource(token);
             var screen = config.WarmupScreen;
             screen?.Initialize();
 
             try {
-                TotalCount = collection.variantCount;
+                // Warmup counts graphics states (a shader variant has one per way it was drawn), not shader variants.
+                TotalCount = collection.totalGraphicsStateCount;
                 CurrentCount = 0;
+                var clock = Stopwatch.StartNew();
 
                 screen?.Show(this);
 
@@ -52,6 +63,7 @@ namespace Majinfwork.World {
                 CurrentCount = TotalCount;
                 IsComplete = true;
                 screen?.UpdateProgress(this);
+                Debug.Log($"[PSOWarmupRunner] Warmed up {collection.completedWarmupCount} graphics states of {collection.variantCount} shader variants in {clock.ElapsedMilliseconds} ms");
             }
             catch (System.OperationCanceledException) {
                 Debug.LogWarning("[PSOWarmupRunner] Warmup cancelled");

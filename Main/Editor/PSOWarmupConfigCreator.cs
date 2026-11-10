@@ -33,7 +33,9 @@ namespace Majinfwork.World {
 
             field.objectReferenceValue = config;
             serialized.ApplyModifiedPropertiesWithoutUndo();
-            AssetDatabase.SaveAssets();
+            // Only the two assets changed here: saving every asset would also write whatever else is being edited.
+            AssetDatabase.SaveAssetIfDirty(config);
+            AssetDatabase.SaveAssetIfDirty(settings);
 
             Debug.Log($"[Majingari Framework] PSO warmup config created at {path} and set on the world settings.");
             Selection.activeObject = config;

@@ -68,7 +68,8 @@ namespace Majinfwork.World {
             var dir = System.IO.Path.Combine(Application.persistentDataPath, "RecordedPSO");
             System.IO.Directory.CreateDirectory(dir);
             var timestamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            var path = System.IO.Path.Combine(dir, $"pso_{timestamp}.shaderstates");
+            // .graphicsstate is the extension the editor imports as a GraphicsStateCollection (for a PSOWarmupConfig).
+            var path = System.IO.Path.Combine(dir, $"pso_{timestamp}.graphicsstate");
 
             recordingCollection.SaveToFile(path);
             Debug.Log($"[PSORecordingOverlay] Saved PSO collection ({recordingCollection.variantCount} variants) to: {path}");
